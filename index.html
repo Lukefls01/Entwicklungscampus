@@ -46,9 +46,26 @@ button[aria-pressed=true]{background:var(--acc);color:#20160a;border-color:trans
 #deptTip b{color:var(--ink);font-size:14px;font-weight:700}
 #deptTip[hidden]{display:none}
 #deptTip .go{color:var(--acc);font-weight:600}
-#appWin{position:fixed;inset:0;z-index:6;display:grid;place-items:center;background:rgba(6,10,9,.6);opacity:0;pointer-events:none;transition:opacity .25s}
-#appWin.open{opacity:1;pointer-events:auto}
-#appWin .win{width:min(1100px,94vw);height:min(840px,90vh);display:flex;flex-direction:column;overflow:hidden}
+#appWin{position:fixed;top:16px;right:16px;bottom:16px;width:min(560px,calc(100vw - 32px));z-index:6;opacity:0;pointer-events:none;transform:translateX(28px);transition:opacity .25s,transform .25s}
+#appWin.open{opacity:1;pointer-events:auto;transform:none}
+#appWin .win{width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.45)}
+#floors{position:fixed;left:16px;top:84px;z-index:3;width:max-content;max-width:calc(100vw - 32px);overflow:hidden}
+#floorsTab{border:0;background:none;border-radius:16px;min-height:44px;padding:0 14px 0 16px;display:flex;align-items:center;gap:12px;font-size:15px;font-weight:700;width:100%;justify-content:space-between}
+#floorsTab:hover{background:rgba(255,255,255,.06)}
+#floorsTab svg{width:16px;height:16px;transition:transform .25s;opacity:.8}
+#floors.open #floorsTab svg{transform:rotate(180deg)}
+#floorList{width:300px;max-height:calc(100vh - 160px);overflow:auto;padding:2px 8px 10px;border-top:1px solid var(--line)}
+#floorList[hidden]{display:none}
+.fw{margin:12px 8px 4px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--mut)}
+.fr{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:6px 10px;min-height:42px;font-size:14px;font-weight:400;color:var(--ink);cursor:default;white-space:normal}
+.fr.app{cursor:pointer}
+.fr:hover,.fr:focus-visible{background:rgba(255,255,255,.08)}
+.fr .fl{width:62px;flex:none;color:var(--mut);font-size:13px}
+.fr .nm{flex:1;font-weight:600}
+.fr .st{font-size:12px;color:var(--mut);white-space:nowrap}
+.fr .st.on{color:#ffd38a}
+.fr .st.on::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#ffc46b;box-shadow:0 0 8px #ffb347;margin-right:6px;vertical-align:1px}
+.fr.app .st:not(.on){color:var(--acc)}
 #appWin .bar{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 16px;border-bottom:1px solid var(--line)}
 #appWin .bar b{flex:1;font-size:16px;color:var(--ink)}
 #appWin .bar a{color:var(--ink);text-decoration:none;font-size:13px;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:9px 14px;background:rgba(255,255,255,.07)}
@@ -69,6 +86,7 @@ button[aria-pressed=true]{background:var(--acc);color:#20160a;border-color:trans
 <body>
 <canvas id="c" tabindex="0" aria-label="Lebendes 3D-Bild des TT Entwicklungscampus mit Garten und Brunnen"></canvas>
 <div id="title" class="panel"><h1>TT Entwicklungscampus</h1></div>
+<nav id="floors" class="panel" aria-label="Etagen"><button id="floorsTab" aria-expanded="false" aria-controls="floorList"><span>Etagen</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button><div id="floorList" hidden></div></nav>
 <div id="clock" class="panel">
  <div class="now"><span id="hm">--:--</span><span class="live"><i></i>Live · Göppingen</span></div>
  <div id="date">–</div>
@@ -626,13 +644,14 @@ const volAt=(x,z,k=9)=>{let best='A',bv=-1;for(const v in VOLS){let f=0;for(cons
 const WING={A:'Westflügel',B:'Ostflügel',C:'Nordflügel'},FLN=k=>k===0?'Erdgeschoss':`${k}. OG`;
 const DEPTS=[['A',[0]],['A',[1]],['A',[2]],['A',[3,4]],['B',[0]],['B',[1]],['B',[2,3]],['C',[0,1,2,3]]].map(([v,fl])=>({v,fl,desks:0,
   name:WING[v]+' · '+(fl.length===1?FLN(fl[0]):v==='C'?'alle Etagen':`${fl[0]}.–${fl[fl.length-1]}. OG`)}));
+DEPTS.forEach(D=>{D.wing=WING[D.v];D.floor=D.name.split(' · ')[1];});
 // departments that open a web app on click
 Object.assign(DEPTS[0],{name:'TT-Kasse',url:'https://tt-kasse.web.app/'});
 Object.assign(DEPTS[1],{name:'Techno-Playlists',url:'https://lukefls01.github.io/techno-playlists/'});
 // claude.ai can't be embedded, so it opens as a compact window next to the campus (free, uses the normal Claude account)
 Object.assign(DEPTS[3],{name:'Claude',url:'https://claude.ai/new',popup:true});
 const deptIdx=(v,k)=>DEPTS.findIndex(d=>d.v===v&&d.fl.includes(k));
-const deptMeshes=[],deptLines=[];
+const deptMeshes=[],deptLines=[],deptOn=new Set();let listHover=-1;
 DEPTS.forEach((D,di)=>{const fills=[],seg=[];const OFF=OH+.25,LOFF=OH+.29;
   const runsOf=(lp,mask,grow)=>{const n=lp.pts.length,out=[];if(mask.every(Boolean))return [{idx:[...Array(n).keys()],closed:true}];if(!mask.some(Boolean))return out;
     const start=mask.findIndex(o=>!o);let run=[];const flush=()=>{if(run.length>2){if(grow){run.unshift((run[0]-1+n)%n);run.push((run[run.length-1]+1)%n);}out.push({idx:run,closed:false});}run=[];};
@@ -654,13 +673,14 @@ DEPTS.forEach((D,di)=>{const fills=[],seg=[];const OFF=OH+.25,LOFF=OH+.29;
       if(hasAbove){const capMask=step.map(s=>s>.6);const inner=lp.pts.map((p,i)=>[p[0]+lp.nrm[i][0]*(OFF-step[i]),p[1]+lp.nrm[i][1]*(OFF-step[i])]);
         for(const r of runsOf(lp,capMask,false))fills.push(cap(op,inner,r.idx,r.closed,yT+.07));}}}
   if(!fills.length)return;
-  const m=new THREE.Mesh(mergeGeometries(fills.map(x=>x.index?x.toNonIndexed():x)),new THREE.ShaderMaterial({uniforms:{uA:{value:0}},transparent:true,depthWrite:false,
+  const m=new THREE.Mesh(mergeGeometries(fills.map(x=>x.index?x.toNonIndexed():x)),new THREE.ShaderMaterial({uniforms:{uA:{value:0},uL:{value:0}},transparent:true,depthWrite:false,
     vertexShader:`void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader:`uniform float uA;void main(){gl_FragColor=vec4(vec3(1.,.95,.88)*1.35,uA*.3);${TMAP}}`}));
+    fragmentShader:`uniform float uA,uL;void main(){float a=max(uA*.3,uL*.48);vec3 c=mix(vec3(1.,.8,.5)*(1.2+1.6*uL),vec3(1.,.95,.88)*1.35,uA/(uA+uL+1e-4));gl_FragColor=vec4(c,a);${TMAP}}`}));
   m.renderOrder=10;m.userData.dept=di;building.add(m);deptMeshes.push(m);
   const lg=new LineSegmentsGeometry();lg.setPositions(seg);const lm=new LineMaterial({color:0xffffff,linewidth:2,transparent:true,opacity:0,depthWrite:false,worldUnits:false});
   lm.color.setRGB(1.7,1.05,.42);const ln=new LineSegments2(lg,lm);ln.renderOrder=11;ln.userData.dept=di;ln.raycast=()=>{};building.add(ln);deptLines.push(ln);});
 const deskDept=desks.m.map(m=>{const p=new V3().setFromMatrixPosition(m),k=Math.round((p.y-Y0)/FH),di=deptIdx(volAt(p.x,p.z,k),k);if(di>=0)DEPTS[di].desks++;return di;});
+const panelDept=lights.m.map(m=>{const p=new V3().setFromMatrixPosition(m),k=Math.max(0,Math.floor((p.y-Y0)/FH));return deptIdx(volAt(p.x,p.z,k),k);});
 const countOcc=h=>{let c=0;for(let j=0;j<seatedB.count;j++)if(deskDept[seatOrder[j]]===h)c++;return c;};
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),tip=$('#deptTip');let hoverDept=-1,ptr=null,ptrDirty=false;
 canvas.addEventListener('pointermove',e=>{ptr=[e.clientX,e.clientY];ptrDirty=true;});
@@ -669,24 +689,49 @@ canvas.addEventListener('pointerleave',e=>{if(e.pointerType==='touch')return;ptr
 // click on a department with an app: open it in a window above the campus
 const appWin=$('#appWin'),appFrames={};let appOpen=false;
 function deptAt(cx,cy){ndc.set(cx/innerWidth*2-1,-(cy/innerHeight)*2+1);ray.setFromCamera(ndc,camera);const hit=ray.intersectObjects(deptMeshes,false)[0];return hit?hit.object.userData.dept:-1;}
-function openApp(D){$('#appTitle').textContent=D.name;$('#appTab').href=D.url;
+let curApp=-1;
+function openApp(D){const di=DEPTS.indexOf(D);if(curApp>=0&&curApp!==di)setOn(curApp,false);curApp=di;setOn(di,true);$('#appTitle').textContent=D.name;$('#appTab').href=D.url;
   if(!appFrames[D.url]){const f=document.createElement('iframe');f.title=D.name;f.allow='autoplay; encrypted-media; clipboard-write; fullscreen';f.src=D.url;$('#appFrames').appendChild(f);appFrames[D.url]=f;}
   for(const u in appFrames)appFrames[u].hidden=u!==D.url;
   appWin.classList.add('open');appWin.setAttribute('aria-hidden','false');appOpen=true;tip.hidden=true;setTimeout(()=>$('#appClose').focus(),50);}
-function closeApp(){appWin.classList.remove('open');appWin.setAttribute('aria-hidden','true');appOpen=false;ptrDirty=true;}
-canvas.addEventListener('click',e=>{const d=deptAt(e.clientX,e.clientY);if(d<0||!DEPTS[d].url)return;if(DEPTS[d].popup)openPopup(DEPTS[d].url);else openApp(DEPTS[d]);});
-function openPopup(url){const w=Math.round(Math.min(640,screen.availWidth*.42)),h=Math.round(Math.min(screen.availHeight-80,1000)),
+function closeApp(){appWin.classList.remove('open');appWin.setAttribute('aria-hidden','true');appOpen=false;ptrDirty=true;if(curApp>=0)setOn(curApp,false);curApp=-1;}
+function launch(d){const D=DEPTS[d];if(!D||!D.url)return;if(D.popup)openPopup(D);else openApp(D);}
+canvas.addEventListener('click',e=>launch(deptAt(e.clientX,e.clientY)));
+// popup apps (Claude): lights on while the window is open. If the site cuts the link to its opener
+// (then the window looks "closed" right away), fall back to: on until the campus gets the focus back.
+function openPopup(D){const w=Math.round(Math.min(640,screen.availWidth*.42)),h=Math.round(Math.min(screen.availHeight-80,1000)),
   l=Math.round((window.screenX||0)+(window.outerWidth||screen.availWidth)-w-24),t=Math.round((window.screenY||0)+56);
-  const win=window.open(url,'ttClaude',`popup=yes,width=${w},height=${h},left=${l},top=${t}`);if(win){try{win.focus();}catch(e){}}}
+  const win=window.open(D.url,'tt'+D.name.replace(/\W/g,''),`popup=yes,width=${w},height=${h},left=${l},top=${t}`);if(!win)return;
+  try{win.focus();}catch(e){}D.win=win;D.openT=performance.now();D.alive=false;D.blind=false;setOn(DEPTS.indexOf(D),true);}
+setInterval(()=>{const now=performance.now();DEPTS.forEach((D,di)=>{if(!D.popup||!deptOn.has(di)||D.blind)return;let closed=true;try{closed=!D.win||D.win.closed;}catch(e){}
+  if(!closed){D.alive=true;return;}if(now-D.openT<6000)D.blind=true;else setOn(di,false);});},1000);
+addEventListener('focus',()=>{const now=performance.now();DEPTS.forEach((D,di)=>{if(D.popup&&D.blind&&deptOn.has(di)&&now-D.openT>1500)setOn(di,false);});});
+function setOn(di,on){if(di<0)return;if(on===deptOn.has(di))return;on?deptOn.add(di):deptOn.delete(di);applyPanels();renderFloors();}
+// ---- floor list (left drawer)
+const SHORT=f=>f==='Erdgeschoss'?'EG':f==='alle Etagen'?'alle':f;
+function renderFloors(){const L=$('#floorList');if(L.hidden)return;let html='',w='';
+  DEPTS.forEach((D,di)=>{if(D.wing!==w){w=D.wing;html+=`<div class="fw">${w}</div>`;}const on=deptOn.has(di);
+    const st=D.url?(on?'<span class="st on">Licht an</span>':`<span class="st">Öffnen${D.popup?' ↗':''}</span>`):`<span class="st">${countOcc(di)}/${D.desks}</span>`;
+    html+=`<button class="fr${D.url?' app':''}" data-d="${di}" type="button"${D.url?'':' tabindex="-1"'}><span class="fl">${SHORT(D.floor)}</span><span class="nm">${D.url?D.name:'Büros'}</span>${st}</button>`;});
+  L.innerHTML=html;}
+{const F=$('#floors'),T=$('#floorsTab'),L=$('#floorList');
+  const setOpen=o=>{F.classList.toggle('open',o);T.setAttribute('aria-expanded',o);L.hidden=!o;try{localStorage.setItem('ttFloors',o?'1':'0');}catch(e){}if(o)renderFloors();};
+  T.addEventListener('click',()=>setOpen(L.hidden));
+  L.addEventListener('pointerover',e=>{const b=e.target.closest('.fr');const d=b?+b.dataset.d:-1;if(d!==listHover){listHover=d;ptrDirty=true;}});
+  L.addEventListener('pointerleave',()=>{listHover=-1;ptrDirty=true;});
+  L.addEventListener('focusin',e=>{const b=e.target.closest('.fr');if(b){listHover=+b.dataset.d;ptrDirty=true;}});
+  L.addEventListener('focusout',()=>{listHover=-1;ptrDirty=true;});
+  L.addEventListener('click',e=>{const b=e.target.closest('.fr');if(b)launch(+b.dataset.d);});
+  let o=false;try{o=localStorage.getItem('ttFloors')==='1';}catch(e){}setOpen(o);}
 $('#appClose').addEventListener('click',closeApp);appWin.addEventListener('click',e=>{if(e.target===appWin)closeApp();});
 addEventListener('keydown',e=>{if(e.key==='Escape'&&appOpen)closeApp();});
 function updateHover(dt){
-  if(ptrDirty){ptrDirty=false;let h=-1;if(ptr){ndc.set(ptr[0]/innerWidth*2-1,-(ptr[1]/innerHeight)*2+1);ray.setFromCamera(ndc,camera);const hit=ray.intersectObjects(deptMeshes,false)[0];if(hit)h=hit.object.userData.dept;}
+  if(ptrDirty){ptrDirty=false;let h=-1;if(listHover>=0)h=listHover;else if(ptr){ndc.set(ptr[0]/innerWidth*2-1,-(ptr[1]/innerHeight)*2+1);ray.setFromCamera(ndc,camera);const hit=ray.intersectObjects(deptMeshes,false)[0];if(hit)h=hit.object.userData.dept;}
     if(h!==hoverDept){hoverDept=h;canvas.style.cursor=h>=0&&DEPTS[h].url?'pointer':'';}
-    if(h>=0){const D=DEPTS[h];tip.innerHTML=D.url?`<b>${D.name}</b><span class="go">Klicken zum Öffnen</span>`:`<b>${D.name}</b><span>${countOcc(h)} von ${D.desks} Plätzen besetzt</span>`;tip.style.left=ptr[0]+'px';tip.style.top=ptr[1]+'px';
-      tip.classList.toggle('flip',ptr[0]>innerWidth-240);tip.hidden=false;}else tip.hidden=true;}
-  const k=Math.min(1,dt*9),nf=lerp(1,.8,night);for(const m of deptMeshes){const u=m.material.uniforms.uA;u.value=lerp(u.value,m.userData.dept===hoverDept?nf:0,k);m.visible=u.value>.003;}
-  const lc=lerp(1.75,1.05,night);for(const l of deptLines){const o=l.material;o.color.setRGB(lc,lc*.6,lc*.24);o.opacity=lerp(o.opacity,l.userData.dept===hoverDept?.95*nf:0,k);l.visible=o.opacity>.005;}}
+    if(h>=0&&listHover<0&&ptr){const D=DEPTS[h];tip.innerHTML=D.url?`<b>${D.name}</b><span class="go">Klicken zum Öffnen</span>`:`<b>${D.name}</b><span>${countOcc(h)} von ${D.desks} Plätzen besetzt</span>`;tip.style.left=ptr[0]+'px';tip.style.top=ptr[1]+'px';
+      tip.classList.toggle('flip',ptr[0]>innerWidth-240);tip.hidden=listHover>=0;}else tip.hidden=true;}
+  const k=Math.min(1,dt*9),nf=lerp(1,.8,night);const kl=Math.min(1,dt*3);for(const m of deptMeshes){const u=m.material.uniforms.uA,uL=m.material.uniforms.uL;u.value=lerp(u.value,m.userData.dept===hoverDept?nf:0,k);uL.value=lerp(uL.value,deptOn.has(m.userData.dept)?lerp(1,.5,night):0,kl);m.visible=u.value>.003||uL.value>.003;}
+  const lc=lerp(1.75,1.05,night);for(const l of deptLines){const o=l.material;o.color.setRGB(lc,lc*.6,lc*.24);o.opacity=lerp(o.opacity,l.userData.dept===hoverDept?.95*nf:deptOn.has(l.userData.dept)?.5:0,k);l.visible=o.opacity>.005;}}
 // --- terrace furniture, parasols, planters
 let parsMesh=null;
 {const setG=mergeGeometries([cylC(.46,.46,.04,16,0,.72,0,0xe2ddd2),cylC(.04,.04,.72,6,0,0,0,0x3b3d40),
@@ -925,9 +970,10 @@ function tickClock(){const d=nowD();$('#hm').textContent=fHM.format(d);const ds=
   else t=`Nacht · Aufgang morgen ${f(evTomorrow.rise)}`;$('#sunInfo').textContent=t;$('#wxInfo').textContent='Wetter: '+wxName();}
 function updateLight(){const d=nowD(),s=sunAt(d);Object.assign(wx,weatherAt(d));setSun(s.el,s.az);{const pv=wx.rain<.25;if(parsMesh.visible!==pv){parsMesh.visible=pv;renderer.shadowMap.needsUpdate=true;}}flock.on=s.el>0&&wx.rain<.15;
   for(const P of people)P.g.userData.um.visible=wx.rain>.22;return s;}
+let lastLit=1;function applyPanels(){for(let i=0;i<lightZ.length;i++)lightPanels.setColorAt(i,tmpC.setScalar(deptOn.has(panelDept[i])?2.4:lightZ[i]<lastLit?1:.09));lightPanels.instanceColor.needsUpdate=true;}
 function updateLife(force){const d=nowD(),b=berlin(d),s=updateLight();
   const occ=clamp(occupancy(b.h,b.wd),0,1),lit=clamp(occ*1.15+.04+.1*night,0,1);
-  for(let i=0;i<lightZ.length;i++)lightPanels.setColorAt(i,tmpC.setScalar(lightZ[i]<lit?1:.09));lightPanels.instanceColor.needsUpdate=true;
+  lastLit=lit;applyPanels();renderFloors();
   zoneU.value=lit;const inner=Math.max(night,dusk*.45);M.ceil.emissiveIntensity=inner*.42;M.floor.emissiveIntensity=inner*.55;M.glass.envMapIntensity=lerp(1.9,.55,night);
   seatedB.count=seatedH.count=Math.round(occ*seatOrder.length*.85);
   const n=Math.round(strollers(b.h,s.el)*(1-.55*wx.rain-.3*wx.storm));people.forEach((P,i)=>P.g.visible=i<n);sitters.forEach((g,i)=>g.visible=s.el>3&&b.h<18.5&&wx.rain<.15&&i<(n>6?3:1));
@@ -969,8 +1015,9 @@ let fpsN=0,fpsT=0;const gpuName=(()=>{try{const gl=renderer.getContext(),e=gl.ge
 // adaptive quality: never lowers the resolution and never removes scene detail; only antialiasing samples
 const QL=[4,2,0];let qi=0,qFail=-1,qOk=0,qFailT=0;const fts=[];
 function setQuality(i){qi=i;const rb=composer.readBuffer,ns=LITE?0:QL[i];if(rb.samples!==ns){rb.samples=ns;rb.dispose();}}
-function frame(){if(appOpen){clock.getDelta();requestAnimationFrame(frame);return;}frameNo++;const rawDt=clock.getDelta(),dt=Math.min(rawDt,.05),t=clock.elapsedTime;
-  if(frameNo>120&&rawDt<.25){fts.push(rawDt);if(fts.length>=90){fts.sort((a,b)=>a-b);const med=fts[45]*1000,tn=performance.now();fts.length=0;
+let skipF=false;
+function frame(){if(appOpen&&(skipF=!skipF)){requestAnimationFrame(frame);return;}frameNo++;const rawDt=clock.getDelta(),dt=Math.min(rawDt,.05),t=clock.elapsedTime;
+  if(frameNo>120&&rawDt<.25&&!appOpen){fts.push(rawDt);if(fts.length>=90){fts.sort((a,b)=>a-b);const med=fts[45]*1000,tn=performance.now();fts.length=0;
     if(med>26&&qi<QL.length-1){qFail=Math.max(qFail,qi);qFailT=tn;setQuality(qi+1);qOk=0;}
     else if(med<17.5&&qi>0){if(++qOk>=4&&(qi-1>qFail||tn-qFailT>120000)){if(qi-1<=qFail)qFail=qi-2;setQuality(qi-1);qOk=0;}}else qOk=0;}}
   if(fpsBox){fpsN++;fpsT+=rawDt;if(fpsT>=1){fpsBox.textContent=`${Math.round(fpsN/fpsT)} FPS · ${(fpsT/fpsN*1000).toFixed(1)} ms · Kantenglättung ${composer.readBuffer.samples}x (Stufe ${qi+1}/${QL.length})\n${renderer.domElement.width}×${renderer.domElement.height} px · ${gpuName}`;fpsN=0;fpsT=0;}}

@@ -15,7 +15,9 @@ Die Seite lädt Three.js (0.170.0) von jsDelivr und die Schrift Manrope von Goog
 
 ## Apps im Gebäude
 
-Einige Abteilungen öffnen beim Anklicken eine App in einem Fenster über dem Campus:
+Links gibt es den ausklappbaren Reiter „Etagen“ mit allen Flügeln und Etagen. Überfahren hebt die Etage im Gebäude hervor,
+ein Klick öffnet die App. Einige Abteilungen öffnen beim Anklicken eine App (rechts als Seitenleiste);
+solange eine App offen ist, brennt in ihrer Etage Licht:
 
 | Bereich | App |
 |---|---|
