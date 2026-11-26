@@ -427,15 +427,10 @@ const onRing=(dx,dz,r=FR)=>{const l=Math.hypot(dx,dz);return [FC[0]+dx/l*r,FC[1]
 const dN=[entP[0]-FC[0],entP[1]-FC[1]];
 const board=curvePts([entP,[entP[0]+1.6,entP[1]+6.5],[entP[0]+4.7,entP[1]+12],onRing(dN[0],dN[1],FR-.4)],.28);
 const south=curvePts([onRing(.34,.94),[12.5,40],[14,48],[15.5,66]],.5);
-const westB=curvePts([onRing(-1,0),[-12,27],[-26,33],[-40,39],[-62,45]],.5);
-const eastB=curvePts([onRing(1,0),[28,26],[42,31],[58,35],[82,39]],.5);
-const prom=curvePts([[-72,50.5],[-34,48],[-6,49.5],[14,48],[38,46.5],[62,48],[96,51.5]],.5);
-const wloop=curvePts([[entP[0]-5,entP[1]-1],[-16,13],[-28,20],[-36,30],[-41,39.5]],.5);
-const eloop=curvePts([[entP[0]+5,entP[1]-1],[20,13],[36,18],[48,27],[56,34.5]],.5);
-const swP=curvePts([onRing(-.72,.7),[-6,38],[-12,48.6]],.5);
-const seP=curvePts([onRing(.72,.7),[24,38],[30,46.8]],.5);
+// one promenade loop: leaves the fountain plaza to the west, swings round the front lawn and returns from the east
+const loop=curvePts([onRing(-1,0),[-8,25.5],[-16,30.5],[-18.5,38],[-12,44.5],[-1,48],[12,49],[25,47],[34.5,41],[37.5,33],[32,26.5],onRing(1,0)],.5);
 const pathY=(x,z)=>terrainH(x,z)+.05;
-const PATHS=[[south,3.2,M.pave],[prom,2.8,M.gravel],[westB,2.4,M.gravel],[eastB,2.4,M.gravel],[wloop,2.2,M.gravel],[eloop,2.2,M.gravel],[swP,2,M.gravel],[seP,2,M.gravel]];
+const PATHS=[[south,3.2,M.pave],[loop,2.8,M.gravel]];
 const pIdx=new Map(),pKey=(x,z)=>Math.floor(x/3)+','+Math.floor(z/3);
 PATHS.forEach(([pts,w],pi)=>pts.forEach(p=>{const k=pKey(p[0],p[1]);if(!pIdx.has(k))pIdx.set(k,[]);pIdx.get(k).push([p[0],p[1],w/2,pi]);}));
 function onOther(x,z,pi){for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){const a=pIdx.get((Math.floor(x/3)+dx)+','+(Math.floor(z/3)+dz));if(a)for(const q of a)if(q[3]!==pi&&Math.hypot(x-q[0],z-q[1])<q[2]+.08)return true;}return false;}
@@ -482,8 +477,8 @@ scene.add(plankI.mesh(new THREE.BoxGeometry(1,.07,.26),plankMat,true,true));
 {const m=new THREE.Mesh(mergeGeometries(beamG.map(g=>g.toNonIndexed())),M.vc);m.castShadow=true;m.receiveShadow=true;scene.add(m);}
 
 // flower beds
-const BEDS=[[-14,20,5.5,2.4,35,[[285,70,62],[48,92,55],[0,0,96]]],[-22,42,6,2.5,10,[[330,62,62],[275,55,62],[52,90,58]]],[1,41,4.5,2.4,-60,[[350,75,58],[0,0,96],[30,90,55]]],
- [19.5,41,4.5,2.4,60,[[275,52,58],[45,95,58],[0,0,96]]],[42,40,6,2.6,-8,[[300,58,66],[0,0,96],[350,72,55]]],[28,21,4.5,2.2,-20,[[355,72,55],[45,92,56]]],[-42,20,4,2.4,60,[[285,70,62],[52,90,58]]],[62,22,4.5,2.4,-30,[[330,62,62],[0,0,96]]]];
+const BEDS=[[-31,33,8.5,3.2,55,[[285,70,62],[48,92,55],[0,0,96],[330,62,62]]],[48,30,8,3,-58,[[300,58,66],[0,0,96],[350,72,55],[45,95,58]]],
+ [0,38.5,5.2,2.3,-28,[[350,75,58],[0,0,96],[30,90,55]]],[25,38.5,5.2,2.3,28,[[275,52,58],[45,95,58],[0,0,96]]]];
 const stemI=new Inst(),headI=new Inst(),fol=new Inst(),tallG=new Inst();
 for(const [cx,cz,rx,rz,rot,pal] of BEDS){const a=rot*Math.PI/180,ca=Math.cos(a),sa=Math.sin(a),pts=[];
   for(let i=0;i<64;i++){const t=i/64*6.283,r=1+.12*SN.noise(Math.cos(t)*1.5+cx,Math.sin(t)*1.5+cz);const u=Math.cos(t)*rx*r,v=Math.sin(t)*rz*r;pts.push([cx+u*ca-v*sa,cz+u*sa+v*ca]);}
@@ -517,7 +512,7 @@ let lawnTufts=null;
  const lm=li.mesh(tuftGeo(7,.06,.13,0x3b5a2c,0x62803f),addWind(new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,roughness:.9}),.02,.13),false,true);lm.layers.set(1);scene.add(lm);lawnTufts=lm;
  const tg2=tallG.mesh(tuftGeo(14,.5,1,0x6b7a3a,0xe2d29a),addWind(new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,roughness:.85}),.14,1.1));tg2.layers.set(1);scene.add(tg2);}
 // topiary balls at the entrance plaza and a clipped hedge ring around the fountain plaza
-const openings=[Math.atan2(dN[1],dN[0]),Math.atan2(.94,.34),0,Math.PI,Math.atan2(.7,-.72),Math.atan2(.7,.72)];
+const openings=[Math.atan2(dN[1],dN[0]),Math.atan2(.94,.34),0,Math.PI];
 const nearOpen=a=>openings.some(o=>{const d=Math.atan2(Math.sin(a-o),Math.cos(a-o));return Math.abs(d)<.2;});
 {const top=new Inst(),g=smoothIco(1,3),p=g.attributes.position,v=new V3();for(let i=0;i<p.count;i++){v.fromBufferAttribute(p,i);v.multiplyScalar(1+.06*SN.noise(v.x*5,v.y*5+v.z*3));p.setXYZ(i,v.x,v.y,v.z);}g.computeVertexNormals();
  for(let i=0;i<34;i++){const a=rr(0,6.283),x=entP[0]-1+Math.cos(a)*rr(15.5,17),z=entP[1]-4+Math.sin(a)*rr(10.5,12);if(isOcc(x,z)&&R()<.7||bField(x,z)>.4)continue;const s=rr(.45,1.1);top.add(x,terrainH(x,z)+s*.8,z,0,s,s*.9,s);}
@@ -530,13 +525,14 @@ const benchList=[];
  for(const s of [-.75,.75])parts.push(boxC(.06,.45,.5,s,.22,-.04,0x2c2f33),boxC(.06,.5,.06,s,.65,-.3,0x2c2f33));
  const bi=new Inst();const put=(x,z,face,y)=>{y=y??terrainH(x,z)+.02;bi.add(x,y,z,face);benchList.push([x,y,z,face]);};
  for(const deg of [103,158,215,305,22]){const a=deg*Math.PI/180,x=FC[0]+Math.cos(a)*6.6,z=FC[1]+Math.sin(a)*6.6;put(x,z,Math.atan2(-Math.cos(a),-Math.sin(a)),.09);}
- for(const x of [-44,-20,32,52,74]){let best=prom[0];for(const p of prom)if(Math.abs(p[0]-x)<Math.abs(best[0]-x))best=p;put(best[0],best[1]-2.1,Math.PI);}
+ for(const f of [.2,.38,.62,.8]){const i=Math.round(f*(loop.length-1)),a=loop[i-2],b=loop[i+2],tx=b[0]-a[0],tz=b[1]-a[1],l=Math.hypot(tx,tz),nx=-tz/l,nz=tx/l;
+   const x=loop[i][0]+nx*2.4,z=loop[i][1]+nz*2.4;put(x,z,Math.atan2(-nx,-nz));}
  put(entP[0]-9,entP[1]+3,-.45);put(entP[0]+8,entP[1]+3,.45);
  scene.add(bi.mesh(mergeGeometries(parts.map(p=>p.toNonIndexed())),M.vc,true,true));}
 // lamps
 const lampPos=[];{const along=(pts,every,side,start)=>{for(let i=start??Math.floor(every/2);i<pts.length;i+=every){const a=pts[Math.max(0,i-1)],b=pts[Math.min(pts.length-1,i+1)];let tx=b[0]-a[0],tz=b[1]-a[1];const l=Math.hypot(tx,tz)||1;lampPos.push([pts[i][0]-tz/l*side,pts[i][1]+tx/l*side]);}};
  for(const deg of [57,128,190,262,335]){const a=deg*Math.PI/180;lampPos.push([FC[0]+Math.cos(a)*(FR-.55),FC[1]+Math.sin(a)*(FR-.55)]);}
- along(board,30,1.9,14);along(south,24,2.1,8);along(prom,26,-1.9);along(westB,26,1.7,10);along(eastB,26,-1.7,10);along(wloop,26,1.5);along(eloop,26,-1.5);}
+ along(board,30,1.9,14);along(south,24,2.1,8);along(loop,28,1.9,10);}
 const lampHeads=new Inst(),posts=new Inst(),halo=[];
 for(const [x,z] of lampPos){const y=terrainH(x,z)+.02;posts.add(x,y,z);lampHeads.add(x,y+3.25,z);halo.push(x,y+3.2,z);}
 scene.add(posts.mesh(mergeGeometries([cylC(.07,.05,3.2,8,0,0,0,0x2f3337).toNonIndexed(),cylC(.24,.24,.12,16,0,3.3,0,0x2f3337).toNonIndexed()]),M.vc,true,false));
@@ -751,7 +747,7 @@ const arc=(a0,a1,r=5.4,n=30)=>{const o=[];for(let i=0;i<=n;i++){const a=lerp(a0,
 const aN=angOf(board[board.length-1]),aS=angOf(south[0]);let aS2=aS;while(aS2<aN)aS2+=Math.PI*2;
 const boardR=board.map((p,i)=>[p[0],boardYs[i]+.04,p[1]]);
 const ROUTES=[mkRoute([...boardR,...arc(aN,aS2),...gp(south)]),mkRoute([...gp(south).reverse(),...arc(aS,aN+Math.PI*2),...boardR.slice().reverse()]),
-  mkRoute(gp(prom)),mkRoute(gp(westB)),mkRoute(gp(eastB).reverse()),mkRoute(gp(wloop)),mkRoute(gp(eloop)),mkRoute(gp(swP)),mkRoute(gp(seP)),mkRoute(gp(prom).reverse()),mkRoute([...gp(westB).reverse(),...arc(Math.PI,Math.PI*2-.0)])];
+  mkRoute(gp(loop)),mkRoute(gp(loop).reverse()),mkRoute([...gp(loop),...arc(0,-Math.PI*.5),...arc(-Math.PI*.5,-Math.PI)]),mkRoute([...gp(south).reverse(),...arc(aS,Math.PI),...gp(loop).slice(0,Math.round(loop.length*.55))])];
 const people=[];for(let i=0;i<11;i++){const r=ROUTES[i%ROUTES.length];people.push({g:person(),r,s:rr(0,r.len),dir:R()<.5?1:-1,v:rr(1.05,1.45),wait:0,ph:rr(0,6)});}
 const sitters=[benchList[0],benchList[3],benchList[6]].filter(Boolean).map(b=>{const g=person(),u=g.userData;g.position.set(b[0]-Math.sin(b[3])*.06,b[1]-.37,b[2]-Math.cos(b[3])*.06);g.rotation.y=b[3];u.blob.visible=false;u.L.rotation.x=u.R.rotation.x=-1.45;u.aL.rotation.x=u.aR.rotation.x=-.55;return g;});
 function updatePeople(dt){for(const P of people){if(!P.g.visible)continue;const u=P.g.userData;
@@ -918,9 +914,10 @@ outPass.material.fragmentShader=outPass.material.fragmentShader.replace('gl_Frag
 composer.addPass(outPass);
 // ============================================================ loop
 function resize(){renderer.setSize(innerWidth,innerHeight);const a=innerWidth/innerHeight;camera.aspect=a;
-  camera.fov=a<REF_AR?Math.min(82,2*Math.atan(Math.tan(BASE_FOV*Math.PI/360)*REF_AR/a)*180/Math.PI):BASE_FOV;camera.updateProjectionMatrix();
+  const CROP=.12;
+  camera.fov=a<REF_AR?Math.min(82,2*Math.atan(Math.tan(BASE_FOV*Math.PI/360)*REF_AR/a)*180/Math.PI):BASE_FOV;camera.setViewOffset(innerWidth,innerHeight,0,innerHeight*CROP,innerWidth*(1-CROP),innerHeight*(1-CROP));camera.updateProjectionMatrix();
   composer.setPixelRatio(prNow);composer.setSize(innerWidth,innerHeight);for(const l of deptLines)l.material.resolution.set(innerWidth*prNow,innerHeight*prNow);
-  sprayU.uScale.value=renderer.domElement.height/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov/2)));}
+  sprayU.uScale.value=renderer.domElement.height/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*(1-CROP));}
 // ---- memory: once geometry/textures are on the GPU, drop the CPU-side copies (everything here is static;
 // hover picking needs the department meshes, lightning rebuilds its own geometry)
 (()=>{const keep=new Set(deptMeshes.map(m=>m.geometry));keep.add(bolt.geometry);const seenG=new Set(),seenT=new Set();
