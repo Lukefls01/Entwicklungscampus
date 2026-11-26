@@ -380,10 +380,10 @@ const tg=new THREE.PlaneGeometry(TS,TS,TXS.length-1,TZS.length-1);tg.rotateX(-Ma
 {const p=tg.attributes.position;for(let i=0;i<p.count;i++)p.setY(i,terrainH(p.getX(i),p.getZ(i)));tg.computeVertexNormals();
  const nA=tg.attributes.normal,c=new Float32Array(p.count*3),uv=tg.attributes.uv,lawnA=new Float32Array(p.count);
  const cL=col(0x4c6f36),cL2=col(0x5d7c3f),cMe=col(0x6f8a43),cDry=col(0x9a9459),cRock=col(0x7a776c),cFor=col(0x3d4f27),cc=new THREE.Color();
+ const nxT=TXS.length,nzT=TZS.length;
  for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i),ny=nA.getY(i);uv.setXY(i,x/2,z/2);
-  cc.copy(cMe).lerp(cDry,clamp(.5+fbm(x/40,z/40,2)*.9,0,1)*.55);
-  const gm=LAWNF(x,z);
-  lawnA[i]=gm;if(gm>0){const lc=cL.clone().lerp(cL2,.5+.5*SN.noise(x/18,z/18)).multiplyScalar((.93+.14*(.5+.5*fbm(x/6,z/6,2))));cc.lerp(lc,gm);}
+  const ix=i%nxT,iz=Math.floor(i/nxT),spc=Math.max(TXS[Math.min(ix+1,nxT-1)]-TXS[Math.max(ix-1,0)],TZS[Math.min(iz+1,nzT-1)]-TZS[Math.max(iz-1,0)])/2,fk=1-sstep(1.2,2.6,spc);
+  lawnA[i]=1;cc.copy(cL).lerp(cL2,.5+.5*SN.noise(x/18,z/18)).multiplyScalar(.93+.14*(.5+.5*fbm(x/6,z/6,2)*fk));
   const fr=Math.max(sstep(80,118,Math.hypot(x*.8,z+8)),sstep(-62,-80,z));cc.lerp(cFor,fr*.75*(.7+.3*SN.noise(x/9,z/9)));
   if(ny<.84)cc.lerp(cRock,sstep(.84,.62,ny));
   c[i*3]=cc.r;c[i*3+1]=cc.g;c[i*3+2]=cc.b;}
@@ -391,9 +391,7 @@ const tg=new THREE.PlaneGeometry(TS,TS,TXS.length-1,TZS.length-1);tg.rotateX(-Ma
 let outerG=null;const terrain=new THREE.Mesh(tg,new THREE.MeshStandardMaterial({vertexColors:true,map:grassTex,normalMap:grassN,normalScale:new THREE.Vector2(.6,.6),roughness:.96}));
 terrain.material.customProgramCacheKey=()=>'lawnTerrain';terrain.material.onBeforeCompile=sh=>{
   sh.vertexShader='attribute float lawn;varying float vLawn;varying vec3 vTW;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvLawn=lawn;vTW=(modelMatrix*vec4(transformed,1.)).xyz;');
-  sh.fragmentShader='varying float vLawn;varying vec3 vTW;\n'+sh.fragmentShader.replace('#include <map_fragment>',`vec4 tA=texture2D(map,vMapUv);float mB=texture2D(map,vMapUv*.23+vec2(.37,.11)).g;diffuseColor*=tA*(.8+.38*mB);
-  float sP=(vTW.x*.94-vTW.z*.34)/3.1;float tri=abs(fract(sP)-.5)*2.;float aw=fwidth(sP)*1.8;float band=smoothstep(.5-aw,.5+aw,tri);band=mix(.5,band,clamp(1.-aw*2.5,0.,1.));
-  diffuseColor.rgb*=mix(1.,mix(.9,1.1,band),vLawn);`);};terrain.receiveShadow=true;scene.add(terrain);
+  sh.fragmentShader='varying float vLawn;varying vec3 vTW;\n'+sh.fragmentShader.replace('#include <map_fragment>',`vec4 tA=texture2D(map,vMapUv);float mB=texture2D(map,vMapUv*.23+vec2(.37,.11)).g;diffuseColor*=tA*(.8+.38*mB);`);};terrain.receiveShadow=true;scene.add(terrain);
 {const og=new THREE.PlaneGeometry(2400,2400,80,80);og.rotateX(-Math.PI/2);const p=og.attributes.position;
  for(let i=0;i<p.count;i++){const x=p.getX(i),z=p.getZ(i),inner=Math.abs(x)<214&&z>-204&&z<224;p.setY(i,inner?-6:landH(x,z)-.4);}og.computeVertexNormals();
  outerG=new THREE.Mesh(og,new THREE.MeshStandardMaterial({color:0x34462a,roughness:1}));scene.add(outerG);}
@@ -510,16 +508,11 @@ function tuftGeo(blades,hmin,hmax,base,tip){const pos=[],cl=[],nm=[],cb=col(base
     pos.push(ox-px,0,oz-pz,ox+px,0,oz+pz,ox+Math.cos(a)*lean*h,h,oz+Math.sin(a)*lean*h);const tt=ct.clone().offsetHSL(rr(-.02,.02),0,rr(-.05,.05));cl.push(cb.r,cb.g,cb.b,cb.r,cb.g,cb.b,tt.r,tt.g,tt.b);nm.push(0,1,0,0,1,0,0,1,0);}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('color',new THREE.Float32BufferAttribute(cl,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nm,3));return g;}
 const tuftMat=addWind(new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,roughness:.9}),.09,.6);
-{const gi=new Inst(),N=MOB?9000:24000;let tries=0;
- while(gi.m.length<N&&tries<N*16){tries++;const x=rr(-150,150),z=rr(-120,120);if(!inView(x,0,z,1.5)||isOcc(x,z)||bField(x,z)>.3)continue;
-   const lw=LAWNF(x,z);if(lw>.35)continue;const r=Math.hypot(x,z-20);if(r>95&&R()>.5)continue;
-   gi.add(x,terrainH(x,z)-.02,z,rr(0,6.28),rr(.8,1.4),rr(.6,1.5)*(lw>.5?.6:1),rr(.8,1.4));}
- const m=gi.mesh(tuftGeo(9,.28,.62,0x3d5a26,0x93a85a),tuftMat,false,true);m.layers.set(1);scene.add(m);}
 let lawnTufts=null;
-// short mown grass on the lawn (same 3D detail as the meadow, keeps the mowing stripes)
-{const li=new Inst(),N=MOB?13000:38000;let tries=0;
- while(li.m.length<N&&tries<N*8){tries++;const x=rr(-75,95),z=rr(-16,72);if(LAWNF(x,z)<.5||!inView(x,0,z,1)||isOcc(x,z)||bField(x,z)>.32)continue;
-   const sP=(x*.94-z*.34)/3.1,tri=Math.abs(sP-Math.floor(sP)-.5)*2,band=sstep(.42,.58,tri),k=lerp(.9,1.1,band)*rr(.9,1.08);
+// short lawn grass over all open ground (density falls off with distance from the camera)
+{const li=new Inst(),N=MOB?20000:60000;let tries=0;
+ while(li.m.length<N&&tries<N*12){tries++;const x=rr(-150,150),z=rr(-130,72);if(!inView(x,0,z,1)||isOcc(x,z)||bField(x,z)>.32||forestD(x,z)>.55)continue;
+   if(R()>clamp(1.6-Math.hypot(x-CAM_P.x,z-CAM_P.z)/150,.22,1))continue;const k=rr(.9,1.08);
    li.add(x,terrainH(x,z)-.01,z,rr(0,6.28),rr(.8,1.3),rr(.75,1.3),rr(.8,1.3),0,0,new THREE.Color(k,k,k));}
  const lm=li.mesh(tuftGeo(7,.06,.13,0x3b5a2c,0x62803f),addWind(new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,roughness:.9}),.02,.13),false,true);lm.layers.set(1);scene.add(lm);lawnTufts=lm;
  const tg2=tallG.mesh(tuftGeo(14,.5,1,0x6b7a3a,0xe2d29a),addWind(new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,roughness:.85}),.14,1.1));tg2.layers.set(1);scene.add(tg2);}
@@ -693,7 +686,7 @@ let parsMesh=null;
  scene.add(bp.mesh(cylC(.08,.08,.8,10,0,0,0,0x34383c),M.vc,true,false),bh.mesh(new THREE.CylinderGeometry(.085,.085,.06,10),lampMat));}
 // --- wildflowers and daisies
 {const wf=new Inst();let tries=0;while(wf.m.length<(MOB?1600:3800)&&tries<70000){tries++;const x=rr(-90,110),z=rr(-12,90);if(!inView(x,0,z,1)||isOcc(x,z)||bField(x,z)>.25)continue;
-  const lawn=LAWNF(x,z)>.5;if(lawn&&R()>.1)continue;const c=lawn?0xf2efe2:pick([0xf6f4ee,0xf2d23c,0xb07ad8,0xd8342c,0xf6f4ee,0x7d8fe0]);const s=lawn?rr(.45,.7):rr(.7,1.3);
+  const lawn=true;if(R()>.1)continue;const c=lawn?0xf2efe2:pick([0xf6f4ee,0xf2d23c,0xb07ad8,0xd8342c,0xf6f4ee,0x7d8fe0]);const s=lawn?rr(.45,.7):rr(.7,1.3);
   wf.add(x,terrainH(x,z)+(lawn?.05:rr(.18,.38)),z,rr(0,6),s,s*.55,s,0,0,c);}
  const m=wf.mesh(new THREE.OctahedronGeometry(.055,0),new THREE.MeshStandardMaterial({roughness:.7}));m.layers.set(1);scene.add(m);}
 // --- central fountain: basin, column, upper bowl with overflow sheet, jets, night lights
