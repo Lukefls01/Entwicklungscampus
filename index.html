@@ -629,8 +629,8 @@ const DEPTS=[['A',[0]],['A',[1]],['A',[2]],['A',[3,4]],['B',[0]],['B',[1]],['B',
 // departments that open a web app on click
 Object.assign(DEPTS[0],{name:'TT-Kasse',url:'https://tt-kasse.web.app/'});
 Object.assign(DEPTS[1],{name:'Techno-Playlists',url:'https://lukefls01.github.io/techno-playlists/'});
-// own Claude chat (chat.html, talks to the Claude API through the chat server in claude-server/)
-Object.assign(DEPTS[3],{name:'Claude',url:'chat.html'});
+// claude.ai can't be embedded, so it opens as a compact window next to the campus (free, uses the normal Claude account)
+Object.assign(DEPTS[3],{name:'Claude',url:'https://claude.ai/new',popup:true});
 const deptIdx=(v,k)=>DEPTS.findIndex(d=>d.v===v&&d.fl.includes(k));
 const deptMeshes=[],deptLines=[];
 DEPTS.forEach((D,di)=>{const fills=[],seg=[];const OFF=OH+.25,LOFF=OH+.29;
@@ -674,7 +674,10 @@ function openApp(D){$('#appTitle').textContent=D.name;$('#appTab').href=D.url;
   for(const u in appFrames)appFrames[u].hidden=u!==D.url;
   appWin.classList.add('open');appWin.setAttribute('aria-hidden','false');appOpen=true;tip.hidden=true;setTimeout(()=>$('#appClose').focus(),50);}
 function closeApp(){appWin.classList.remove('open');appWin.setAttribute('aria-hidden','true');appOpen=false;ptrDirty=true;}
-canvas.addEventListener('click',e=>{const d=deptAt(e.clientX,e.clientY);if(d<0||!DEPTS[d].url)return;if(DEPTS[d].newTab)window.open(DEPTS[d].url,'_blank','noopener');else openApp(DEPTS[d]);});
+canvas.addEventListener('click',e=>{const d=deptAt(e.clientX,e.clientY);if(d<0||!DEPTS[d].url)return;if(DEPTS[d].popup)openPopup(DEPTS[d].url);else openApp(DEPTS[d]);});
+function openPopup(url){const w=Math.round(Math.min(640,screen.availWidth*.42)),h=Math.round(Math.min(screen.availHeight-80,1000)),
+  l=Math.round((window.screenX||0)+(window.outerWidth||screen.availWidth)-w-24),t=Math.round((window.screenY||0)+56);
+  const win=window.open(url,'ttClaude',`popup=yes,width=${w},height=${h},left=${l},top=${t}`);if(win){try{win.focus();}catch(e){}}}
 $('#appClose').addEventListener('click',closeApp);appWin.addEventListener('click',e=>{if(e.target===appWin)closeApp();});
 addEventListener('keydown',e=>{if(e.key==='Escape'&&appOpen)closeApp();});
 function updateHover(dt){
