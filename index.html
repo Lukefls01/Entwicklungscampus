@@ -625,7 +625,8 @@ const WING={A:'Westflügel',B:'Ostflügel',C:'Nordflügel'},FLN=k=>k===0?'Erdges
 const DEPTS=[['A',[0]],['A',[1]],['A',[2]],['A',[3,4]],['B',[0]],['B',[1]],['B',[2,3]],['C',[0,1,2,3]]].map(([v,fl])=>({v,fl,desks:0,
   name:WING[v]+' · '+(fl.length===1?FLN(fl[0]):v==='C'?'alle Etagen':`${fl[0]}.–${fl[fl.length-1]}. OG`)}));
 // departments that open a web app on click
-Object.assign(DEPTS[0],{place:DEPTS[0].name,name:'TT-Kasse',url:'https://tt-kasse.web.app/'});
+// claude.ai can't be embedded in a frame, so it opens in a new tab
+Object.assign(DEPTS[3],{place:DEPTS[3].name,name:'Claude+',url:'https://claude.ai/',newTab:true});
 const deptIdx=(v,k)=>DEPTS.findIndex(d=>d.v===v&&d.fl.includes(k));
 const deptMeshes=[],deptLines=[];
 DEPTS.forEach((D,di)=>{const fills=[],seg=[];const OFF=OH+.25,LOFF=OH+.29;
@@ -667,7 +668,7 @@ function deptAt(cx,cy){ndc.set(cx/innerWidth*2-1,-(cy/innerHeight)*2+1);ray.setF
 function openApp(D){$('#appTitle').textContent=D.name;appFrame.title=D.name;$('#appTab').href=D.url;if(appFrame.dataset.src!==D.url){appFrame.src=D.url;appFrame.dataset.src=D.url;}
   appWin.classList.add('open');appWin.setAttribute('aria-hidden','false');appOpen=true;tip.hidden=true;setTimeout(()=>$('#appClose').focus(),50);}
 function closeApp(){appWin.classList.remove('open');appWin.setAttribute('aria-hidden','true');appOpen=false;ptrDirty=true;}
-canvas.addEventListener('click',e=>{const d=deptAt(e.clientX,e.clientY);if(d>=0&&DEPTS[d].url)openApp(DEPTS[d]);});
+canvas.addEventListener('click',e=>{const d=deptAt(e.clientX,e.clientY);if(d<0||!DEPTS[d].url)return;if(DEPTS[d].newTab)window.open(DEPTS[d].url,'_blank','noopener');else openApp(DEPTS[d]);});
 $('#appClose').addEventListener('click',closeApp);appWin.addEventListener('click',e=>{if(e.target===appWin)closeApp();});
 addEventListener('keydown',e=>{if(e.key==='Escape'&&appOpen)closeApp();});
 function updateHover(dt){
