@@ -828,9 +828,9 @@ function makeBolt(){const fwd=new V3(CAM_T.x-CAM_P.x,0,CAM_T.z-CAM_P.z).normaliz
   walk(b.x,640,b.z,40,24,14,true);for(let k=0;k<2;k++){const o=seg.slice();for(let i=0;i<o.length;i+=3){seg.push(o[i]+(k?1.2:-1.2),o[i+1],o[i+2]);}}
   const pos=new Float32Array(seg.length);pos.set(seg);bolt.geometry.dispose();bolt.geometry=new THREE.BufferGeometry();bolt.geometry.setAttribute('position',new THREE.BufferAttribute(pos,3));}
 let nextFlash=3,flashT=-1;
-function wxRaw(b){const h=hash3(b,11.3,5.7);return h<.74?0:h<.92?1:2;}
+function wxRaw(b){const day=Math.floor((b*WX_BLOCK+3600)/86400);if(hash3(day,3.1,8.7)>.2)return 0;const h=hash3(b,11.3,5.7);return h<.86?0:h<.965?1:2;}
 function wxState(block){const h2=hash3(block,2.9,17.1);let st=wxRaw(block);if(st&&wxRaw(block-1)&&hash3(block,4.4,9.9)<.85)st=0;
-  return st===0?{st,cover:.32+.2*h2,dark:0,rain:0,storm:0}:st===1?{st,cover:.98,dark:.45+.15*h2,rain:.5+.4*h2,storm:0}:{st,cover:1,dark:.85,rain:1,storm:1};}
+  return st===0?{st,cover:.2+.26*h2,dark:0,rain:0,storm:0}:st===1?{st,cover:.98,dark:.45+.15*h2,rain:.5+.4*h2,storm:0}:{st,cover:1,dark:.85,rain:1,storm:1};}
 const WX_BLOCK=1500;
 function weatherAt(d){const s=d.getTime()/1000,b=Math.floor(s/WX_BLOCK),tin=s-b*WX_BLOCK,cur=wxState(b),prev=wxState(b-1),k=sstep(0,210,tin),o={};
   for(const key of ['cover','dark','rain','storm'])o[key]=lerp(prev[key],cur[key],k);
