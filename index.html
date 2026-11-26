@@ -53,7 +53,9 @@ button[aria-pressed=true]{background:var(--acc);color:#20160a;border-color:trans
 #appWin .bar b{flex:1;font-size:16px;color:var(--ink)}
 #appWin .bar a{color:var(--ink);text-decoration:none;font-size:13px;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:9px 14px;background:rgba(255,255,255,.07)}
 #appWin .bar a:hover{background:rgba(255,255,255,.17)}
-#appWin iframe{flex:1;width:100%;border:0;background:#f3eeee}
+#appFrames{flex:1;position:relative}
+#appWin iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#f3eeee}
+#appWin iframe[hidden]{display:none}
 #loading{position:fixed;inset:0;display:grid;place-items:center;background:#0d1411;z-index:5;transition:opacity .9s;text-align:center;padding:24px}
 #loading.done{opacity:0;pointer-events:none}
 #loading p{color:var(--mut);margin:8px 0 0}
@@ -75,7 +77,7 @@ button[aria-pressed=true]{background:var(--acc);color:#20160a;border-color:trans
  <div id="lifeInfo">–</div>
 </div>
 <div id="deptTip" hidden></div>
-<div id="appWin" aria-hidden="true"><div class="win panel" role="dialog" aria-modal="true" aria-labelledby="appTitle"><div class="bar"><b id="appTitle">TT-Kasse</b><a id="appTab" target="_blank" rel="noopener">In neuem Tab öffnen ↗</a><button id="appClose" aria-label="Schließen">✕</button></div><iframe id="appFrame" title="TT-Kasse" allow="clipboard-write"></iframe></div></div>
+<div id="appWin" aria-hidden="true"><div class="win panel" role="dialog" aria-modal="true" aria-labelledby="appTitle"><div class="bar"><b id="appTitle">TT-Kasse</b><a id="appTab" target="_blank" rel="noopener">In neuem Tab öffnen ↗</a><button id="appClose" aria-label="Schließen">✕</button></div><div id="appFrames"></div></div></div>
 <div id="loading"><div><strong>Baue Campus …</strong><p id="loadMsg">Gebäude, Garten und Fluss werden erzeugt</p></div></div>
 
 <script type="module">
@@ -625,8 +627,10 @@ const WING={A:'Westflügel',B:'Ostflügel',C:'Nordflügel'},FLN=k=>k===0?'Erdges
 const DEPTS=[['A',[0]],['A',[1]],['A',[2]],['A',[3,4]],['B',[0]],['B',[1]],['B',[2,3]],['C',[0,1,2,3]]].map(([v,fl])=>({v,fl,desks:0,
   name:WING[v]+' · '+(fl.length===1?FLN(fl[0]):v==='C'?'alle Etagen':`${fl[0]}.–${fl[fl.length-1]}. OG`)}));
 // departments that open a web app on click
+Object.assign(DEPTS[0],{name:'TT-Kasse',url:'https://tt-kasse.web.app/'});
+Object.assign(DEPTS[1],{name:'Techno-Playlists',url:'https://lukefls01.github.io/techno-playlists/'});
 // claude.ai can't be embedded in a frame, so it opens in a new tab
-Object.assign(DEPTS[3],{place:DEPTS[3].name,name:'Claude+',url:'https://claude.ai/',newTab:true});
+Object.assign(DEPTS[3],{name:'Claude',url:'https://claude.ai/',newTab:true});
 const deptIdx=(v,k)=>DEPTS.findIndex(d=>d.v===v&&d.fl.includes(k));
 const deptMeshes=[],deptLines=[];
 DEPTS.forEach((D,di)=>{const fills=[],seg=[];const OFF=OH+.25,LOFF=OH+.29;
@@ -663,9 +667,11 @@ canvas.addEventListener('pointermove',e=>{ptr=[e.clientX,e.clientY];ptrDirty=tru
 canvas.addEventListener('pointerdown',e=>{ptr=[e.clientX,e.clientY];ptrDirty=true;});
 canvas.addEventListener('pointerleave',e=>{if(e.pointerType==='touch')return;ptr=null;ptrDirty=true;});
 // click on a department with an app: open it in a window above the campus
-const appWin=$('#appWin'),appFrame=$('#appFrame');let appOpen=false;
+const appWin=$('#appWin'),appFrames={};let appOpen=false;
 function deptAt(cx,cy){ndc.set(cx/innerWidth*2-1,-(cy/innerHeight)*2+1);ray.setFromCamera(ndc,camera);const hit=ray.intersectObjects(deptMeshes,false)[0];return hit?hit.object.userData.dept:-1;}
-function openApp(D){$('#appTitle').textContent=D.name;appFrame.title=D.name;$('#appTab').href=D.url;if(appFrame.dataset.src!==D.url){appFrame.src=D.url;appFrame.dataset.src=D.url;}
+function openApp(D){$('#appTitle').textContent=D.name;$('#appTab').href=D.url;
+  if(!appFrames[D.url]){const f=document.createElement('iframe');f.title=D.name;f.allow='autoplay; encrypted-media; clipboard-write; fullscreen';f.src=D.url;$('#appFrames').appendChild(f);appFrames[D.url]=f;}
+  for(const u in appFrames)appFrames[u].hidden=u!==D.url;
   appWin.classList.add('open');appWin.setAttribute('aria-hidden','false');appOpen=true;tip.hidden=true;setTimeout(()=>$('#appClose').focus(),50);}
 function closeApp(){appWin.classList.remove('open');appWin.setAttribute('aria-hidden','true');appOpen=false;ptrDirty=true;}
 canvas.addEventListener('click',e=>{const d=deptAt(e.clientX,e.clientY);if(d<0||!DEPTS[d].url)return;if(DEPTS[d].newTab)window.open(DEPTS[d].url,'_blank','noopener');else openApp(DEPTS[d]);});
@@ -674,7 +680,7 @@ addEventListener('keydown',e=>{if(e.key==='Escape'&&appOpen)closeApp();});
 function updateHover(dt){
   if(ptrDirty){ptrDirty=false;let h=-1;if(ptr){ndc.set(ptr[0]/innerWidth*2-1,-(ptr[1]/innerHeight)*2+1);ray.setFromCamera(ndc,camera);const hit=ray.intersectObjects(deptMeshes,false)[0];if(hit)h=hit.object.userData.dept;}
     if(h!==hoverDept){hoverDept=h;canvas.style.cursor=h>=0&&DEPTS[h].url?'pointer':'';}
-    if(h>=0){const D=DEPTS[h];tip.innerHTML=D.url?`<b>${D.name}</b><span>${D.place}</span><span class="go">Klicken zum Öffnen</span>`:`<b>${D.name}</b><span>${countOcc(h)} von ${D.desks} Plätzen besetzt</span>`;tip.style.left=ptr[0]+'px';tip.style.top=ptr[1]+'px';
+    if(h>=0){const D=DEPTS[h];tip.innerHTML=D.url?`<b>${D.name}</b><span class="go">Klicken zum Öffnen</span>`:`<b>${D.name}</b><span>${countOcc(h)} von ${D.desks} Plätzen besetzt</span>`;tip.style.left=ptr[0]+'px';tip.style.top=ptr[1]+'px';
       tip.classList.toggle('flip',ptr[0]>innerWidth-240);tip.hidden=false;}else tip.hidden=true;}
   const k=Math.min(1,dt*9),nf=lerp(1,.8,night);for(const m of deptMeshes){const u=m.material.uniforms.uA;u.value=lerp(u.value,m.userData.dept===hoverDept?nf:0,k);m.visible=u.value>.003;}
   const lc=lerp(1.75,1.05,night);for(const l of deptLines){const o=l.material;o.color.setRGB(lc,lc*.6,lc*.24);o.opacity=lerp(o.opacity,l.userData.dept===hoverDept?.95*nf:0,k);l.visible=o.opacity>.005;}}
