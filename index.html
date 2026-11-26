@@ -517,7 +517,7 @@ const tuftMat=addWind(new THREE.MeshStandardMaterial({vertexColors:true,side:THR
  const m=gi.mesh(tuftGeo(9,.28,.62,0x3d5a26,0x93a85a),tuftMat,false,true);m.layers.set(1);scene.add(m);}
 let lawnTufts=null;
 // short mown grass on the lawn (same 3D detail as the meadow, keeps the mowing stripes)
-{const li=new Inst(),N=MOB?11000:30000;let tries=0;
+{const li=new Inst(),N=MOB?13000:38000;let tries=0;
  while(li.m.length<N&&tries<N*8){tries++;const x=rr(-75,95),z=rr(-16,72);if(LAWNF(x,z)<.5||!inView(x,0,z,1)||isOcc(x,z)||bField(x,z)>.32)continue;
    const sP=(x*.94-z*.34)/3.1,tri=Math.abs(sP-Math.floor(sP)-.5)*2,band=sstep(.42,.58,tri),k=lerp(.9,1.1,band)*rr(.9,1.08);
    li.add(x,terrainH(x,z)-.01,z,rr(0,6.28),rr(.8,1.3),rr(.75,1.3),rr(.8,1.3),0,0,new THREE.Color(k,k,k));}
@@ -942,13 +942,16 @@ canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();setTimeout(()=
 addEventListener('resize',resize);resize();
 tickClock();updateLife(true);for(const on of [true,false]){pLights.forEach(l=>l.visible=on);renderer.compile(scene,camera);}updateLight();tickClock();setInterval(tickClock,1000);setInterval(updateLight,1000);setInterval(()=>updateLife(false),20000);
 const clock=new THREE.Clock();
-// adaptive quality: never lowers the resolution (image stays sharp); only antialiasing samples and tiny lawn tufts
-const QL=[4,2,0,0];let qi=0,qFail=-1,qOk=0,qFailT=0;const fts=[];
-function setQuality(i){qi=i;const rb=composer.readBuffer,ns=LITE?0:QL[i];if(rb.samples!==ns){rb.samples=ns;rb.dispose();}if(lawnTufts)lawnTufts.visible=i<3;}
+const fpsBox=/[?&]fps\b/.test(location.search)?document.body.appendChild(Object.assign(document.createElement('div'),{style:'position:fixed;left:12px;bottom:12px;z-index:9;font:12px/1.4 system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.55);padding:6px 9px;border-radius:8px;pointer-events:none;white-space:pre'})):null;
+let fpsN=0,fpsT=0;const gpuName=(()=>{try{const gl=renderer.getContext(),e=gl.getExtension('WEBGL_debug_renderer_info');return e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):'?';}catch(e){return '?';}})();
+// adaptive quality: never lowers the resolution and never removes scene detail; only antialiasing samples
+const QL=[4,2,0];let qi=0,qFail=-1,qOk=0,qFailT=0;const fts=[];
+function setQuality(i){qi=i;const rb=composer.readBuffer,ns=LITE?0:QL[i];if(rb.samples!==ns){rb.samples=ns;rb.dispose();}}
 function frame(){frameNo++;const rawDt=clock.getDelta(),dt=Math.min(rawDt,.05),t=clock.elapsedTime;
   if(frameNo>120&&rawDt<.25){fts.push(rawDt);if(fts.length>=90){fts.sort((a,b)=>a-b);const med=fts[45]*1000,tn=performance.now();fts.length=0;
     if(med>26&&qi<QL.length-1){qFail=Math.max(qFail,qi);qFailT=tn;setQuality(qi+1);qOk=0;}
     else if(med<17.5&&qi>0){if(++qOk>=4&&(qi-1>qFail||tn-qFailT>120000)){if(qi-1<=qFail)qFail=qi-2;setQuality(qi-1);qOk=0;}}else qOk=0;}}
+  if(fpsBox){fpsN++;fpsT+=rawDt;if(fpsT>=1){fpsBox.textContent=`${Math.round(fpsN/fpsT)} FPS · ${(fpsT/fpsN*1000).toFixed(1)} ms · Kantenglättung ${composer.readBuffer.samples}x (Stufe ${qi+1}/${QL.length})\n${renderer.domElement.width}×${renderer.domElement.height} px · ${gpuName}`;fpsN=0;fpsT=0;}}
   WU.uTime.value=t;windU.value=t;fNorm.offset.set(t*.021,t*.013);
   updatePeople(dt);updateBirds(dt,t);updateHover(dt);
   falls.forEach((f,i)=>{const k=(t*f.spd+f.seed)%1,x=f.cx+Math.cos(f.a)*f.r+Math.sin(t*1.6+f.seed*9)*.5*windK.value+k*2.2*windK.value,z=f.cz+Math.sin(f.a)*f.r+Math.cos(t*1.2+f.seed*5)*.35;setInst(fallI,i,x,f.gy+.05+f.h*(1-k),z,t*1.7+f.seed*9,t*2.3+f.seed*4,t*1.9);});fallI.instanceMatrix.needsUpdate=true;
