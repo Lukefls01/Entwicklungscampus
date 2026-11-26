@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Claude · TT Entwicklungscampus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+<script>
+// Adresse des Chat-Servers (Cloudflare Worker), z. B. 'https://claude-chat.NAME.workers.dev'.
+// Leer lassen = wird beim ersten Öffnen im Chat abgefragt und im Browser gespeichert.
+window.CHAT_SERVER = '';
+</script>
+<style>
+:root{color-scheme:dark;--bg:#0f1613;--panel:#16201c;--panel2:#1c2823;--line:rgba(255,255,255,.12);--ink:#f4f2ec;--mut:#aeb8ad;--acc:#e3aa60;--acc2:#d9773f;--user:#25342d;--err:#ff8f7a}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 Manrope,system-ui,-apple-system,Segoe UI,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+button,select,textarea,input{font:inherit;color:inherit}
+button{cursor:pointer}
+.top{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+.top .sp{flex:1}
+.btn{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;min-height:36px;display:inline-flex;align-items:center;gap:6px;transition:background .15s}
+.btn:hover{background:rgba(255,255,255,.14)}
+.btn:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+select{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:600;min-height:36px}
+select option{background:var(--panel)}
+.wrap{flex:1;display:flex;min-height:0;position:relative}
+#hist{width:260px;border-right:1px solid var(--line);background:var(--panel);overflow:auto;padding:10px;display:none;flex-direction:column;gap:4px}
+#hist.open{display:flex}
+#hist h3{margin:4px 6px 8px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)}
+.hi{display:flex;align-items:center;gap:4px;border-radius:10px;padding:2px 2px 2px 10px}
+.hi:hover,.hi.cur{background:rgba(255,255,255,.07)}
+.hi button.t{flex:1;text-align:left;background:none;border:0;padding:8px 0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hi button.x{background:none;border:0;color:var(--mut);padding:6px 8px;border-radius:8px;font-size:13px}
+.hi button.x:hover{color:var(--err);background:rgba(255,255,255,.06)}
+main{flex:1;display:flex;flex-direction:column;min-width:0}
+#log{flex:1;overflow:auto;padding:22px 16px 10px;scroll-behavior:smooth}
+.col{max-width:780px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+.msg{display:flex;gap:12px;align-items:flex-start}
+.msg.user{justify-content:flex-end}
+.msg.user .bub{background:var(--user);border:1px solid var(--line);border-radius:16px 16px 4px 16px;padding:10px 14px;max-width:85%;white-space:pre-wrap;word-wrap:break-word}
+.av{width:28px;height:28px;border-radius:9px;background:linear-gradient(135deg,var(--acc),var(--acc2));display:grid;place-items:center;flex:none;margin-top:2px}
+.av svg{width:16px;height:16px}
+.msg.ai .body{flex:1;min-width:0}
+.md>*:first-child{margin-top:0}.md>*:last-child{margin-bottom:0}
+.md p{margin:.55em 0}
+.md h1,.md h2,.md h3,.md h4{margin:1em 0 .4em;line-height:1.3}
+.md h1{font-size:1.3em}.md h2{font-size:1.18em}.md h3{font-size:1.06em}.md h4{font-size:1em}
+.md ul,.md ol{margin:.5em 0;padding-left:1.4em}
+.md li{margin:.2em 0}
+.md a{color:var(--acc)}
+.md blockquote{margin:.6em 0;padding:.2em 0 .2em 12px;border-left:3px solid var(--line);color:var(--mut)}
+.md code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.9em;background:rgba(255,255,255,.08);border-radius:5px;padding:.1em .35em}
+.md pre{position:relative;background:#0a0f0d;border:1px solid var(--line);border-radius:12px;padding:12px 14px;overflow:auto;margin:.7em 0}
+.md pre code{background:none;padding:0;font-size:13px;line-height:1.5;white-space:pre}
+.md pre .lang{position:absolute;left:12px;top:6px;font-size:11px;color:var(--mut)}
+.md pre.hasl{padding-top:26px}
+.md pre .copy{position:absolute;right:6px;top:6px;font-size:11px;padding:3px 9px;min-height:0;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--line)}
+.md table{border-collapse:collapse;margin:.7em 0;font-size:14px;display:block;overflow:auto}
+.md th,.md td{border:1px solid var(--line);padding:6px 10px;text-align:left}
+.md th{background:rgba(255,255,255,.05)}
+.md hr{border:0;border-top:1px solid var(--line);margin:1em 0}
+.meta{display:flex;gap:10px;align-items:center;margin-top:6px;font-size:12px;color:var(--mut);min-height:22px}
+.meta button{background:none;border:0;color:var(--mut);padding:2px 6px;border-radius:6px;font-size:12px}
+.meta button:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+.think{color:var(--mut);font-size:14px;display:inline-flex;gap:8px;align-items:center}
+.dots i{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--acc);margin-right:3px;animation:b 1.2s infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+.err{color:var(--err);font-size:14px;background:rgba(255,120,100,.08);border:1px solid rgba(255,120,100,.3);border-radius:10px;padding:8px 12px}
+.empty{margin:auto;text-align:center;padding:40px 10px;max-width:560px}
+.empty .big{width:52px;height:52px;border-radius:16px;margin:0 auto 14px;background:linear-gradient(135deg,var(--acc),var(--acc2));display:grid;place-items:center}
+.empty .big svg{width:28px;height:28px}
+.empty h2{margin:0 0 6px;font-size:22px}
+.empty p{margin:0 0 18px;color:var(--mut)}
+.sugg{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.comp{padding:10px 16px 14px}
+.box{max-width:780px;margin:0 auto;display:flex;gap:8px;align-items:flex-end;background:var(--panel2);border:1px solid var(--line);border-radius:18px;padding:8px 8px 8px 14px}
+.box:focus-within{border-color:rgba(227,170,96,.6)}
+textarea{flex:1;background:none;border:0;resize:none;outline:none;max-height:220px;min-height:24px;padding:6px 0;line-height:1.5}
+textarea:focus-visible{outline:none}
+#send{width:38px;height:38px;border-radius:12px;border:0;background:var(--acc);color:#20160a;display:grid;place-items:center;flex:none}
+#send:disabled{opacity:.4;cursor:default}
+#send svg{width:18px;height:18px}
+.foot{max-width:780px;margin:6px auto 0;font-size:11.5px;color:var(--mut);display:flex;justify-content:space-between;gap:10px;padding:0 4px}
+#setup{position:absolute;inset:0;background:rgba(10,15,13,.92);display:none;place-items:center;z-index:5;padding:16px}
+#setup.open{display:grid}
+#setup form{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;width:min(440px,100%);display:grid;gap:12px}
+#setup h2{margin:0;font-size:19px}
+#setup p{margin:0;color:var(--mut);font-size:14px}
+#setup label{display:grid;gap:5px;font-size:13px;color:var(--mut)}
+#setup input{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px}
+#setup .row{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+#setup .primary{background:var(--acc);color:#20160a;border-color:transparent}
+#setup .msgerr{color:var(--err);font-size:13px;min-height:1em}
+@media (max-width:640px){#hist.open{position:absolute;inset:0 30% 0 0;z-index:4;box-shadow:0 0 40px rgba(0,0,0,.6)}.top .lbl{display:none}}
+</style>
+</head>
+<body>
+<div class="top">
+  <button class="btn" id="histBtn" aria-expanded="false" aria-controls="hist" title="Verlauf">☰ <span class="lbl">Verlauf</span></button>
+  <select id="model" aria-label="Modell">
+    <option value="claude-haiku-5-5">Haiku 5.5 · günstig</option>
+    <option value="claude-sonnet-5-5" selected>Sonnet 5.5 · ausgewogen</option>
+    <option value="claude-opus-5-5">Opus 5.5 · am stärksten</option>
+  </select>
+  <span class="sp"></span>
+  <button class="btn" id="setBtn" title="Einstellungen">⚙</button>
+  <button class="btn" id="newBtn">＋ <span class="lbl">Neuer Chat</span></button>
+</div>
+<div class="wrap">
+  <nav id="hist" aria-label="Verlauf"></nav>
+  <main>
+    <div id="log" aria-live="polite"><div class="col" id="col"></div></div>
+    <div class="comp">
+      <div class="box">
+        <textarea id="inp" rows="1" placeholder="Schreib Claude eine Nachricht …" aria-label="Nachricht"></textarea>
+        <button id="send" aria-label="Senden" disabled></button>
+      </div>
+      <div class="foot"><span>Claude kann Fehler machen. Wichtiges bitte prüfen.</span><span id="cost"></span></div>
+    </div>
+  </main>
+  <div id="setup" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+    <form id="setupForm">
+      <h2 id="setupTitle">Claude-Chat verbinden</h2>
+      <p id="setupText">Gib den Zugangscode ein, den du beim Chat-Server festgelegt hast.</p>
+      <label id="srvLbl">Server-Adresse<input id="srv" type="url" placeholder="https://claude-chat.…workers.dev" autocomplete="off"></label>
+      <label>Zugangscode<input id="code" type="password" autocomplete="current-password"></label>
+      <div class="msgerr" id="setupErr"></div>
+      <div class="row"><button type="button" class="btn" id="setupCancel">Abbrechen</button><button class="btn primary" type="submit">Speichern</button></div>
+    </form>
+  </div>
+</div>
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const ICON_SEND='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+const ICON_STOP='<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>';
+const ICON_C='<svg viewBox="0 0 24 24" fill="#20160a"><path d="M12 2.5l1.9 6.1 6.1 1.9-6.1 1.9L12 18.5l-1.9-6.1L4 10.5l6.1-1.9z"/><circle cx="18.5" cy="18.5" r="2"/></svg>';
+const PRICE={'claude-haiku-5-5':[.10,.50],'claude-sonnet-5-5':[2,10],'claude-opus-5-5':[4,20]}; // USD pro 1 Mio. Tokens (Eingabe, Ausgabe)
+const MODEL_NAME={'claude-haiku-5-5':'Haiku 5.5','claude-sonnet-5-5':'Sonnet 5.5','claude-opus-5-5':'Opus 5.5'};
+const SUGG=['Erklär mir ein Thema einfach','Hilf mir, eine E-Mail zu formulieren','Prüf meinen Code auf Fehler','Gib mir Ideen für ein Projekt'];
+const usd=new Intl.NumberFormat('de-DE',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:4});
+
+// ---------- storage
+const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch{return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}};
+let chats=store.get('ttc.chats',[]),curId=store.get('ttc.cur',null),busy=false,ctrl=null;
+const server=()=>(window.CHAT_SERVER||store.get('ttc.server','')).replace(/\/+$/,'');
+const code=()=>store.get('ttc.code','');
+const cur=()=>chats.find(c=>c.id===curId)||null;
+const save=()=>{chats.sort((a,b)=>b.t-a.t);if(chats.length>60)chats.length=60;store.set('ttc.chats',chats);store.set('ttc.cur',curId);};
+
+// ---------- markdown (escaped first, then a small safe subset)
+const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function inline(s){
+  const codes=[];s=s.replace(/`([^`\n]+)`/g,(_,c)=>{codes.push(c);return '\u0000'+(codes.length-1)+'\u0000';});
+  s=esc(s);
+  s=s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  s=s.replace(/(^|[\s(])(https?:\/\/[^\s<)]+[^\s<).,;:!?])/g,'$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  s=s.replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/__([^_\n]+)__/g,'<strong>$1</strong>');
+  s=s.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g,'$1<em>$2</em>').replace(/(^|[^_\w])_([^_\n]+)_(?!\w)/g,'$1<em>$2</em>');
+  s=s.replace(/~~([^~\n]+)~~/g,'<del>$1</del>');
+  return s.replace(/\u0000(\d+)\u0000/g,(_,i)=>'<code>'+esc(codes[+i])+'</code>');
+}
+function blocks(text){
+  const L=text.split('\n'),out=[];let i=0;
+  const isTable=j=>/^\s*\|.*\|\s*$/.test(L[j]||'')&&/^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(L[j+1]||'');
+  const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>inline(c.trim()));
+  while(i<L.length){
+    const l=L[i];
+    if(!l.trim()){i++;continue;}
+    let m;
+    if((m=l.match(/^(#{1,4})\s+(.*)/))){out.push(`<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`);i++;continue;}
+    if(/^\s*(?:(?:-\s*){3,}|(?:\*\s*){3,}|(?:_\s*){3,})$/.test(l)){out.push('<hr>');i++;continue;}
+    if(isTable(i)){const h=cells(L[i]);i+=2;const rows=[];while(i<L.length&&/^\s*\|/.test(L[i])){rows.push(cells(L[i]));i++;}
+      out.push('<table><thead><tr>'+h.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table>');continue;}
+    if(/^\s*>/.test(l)){const q=[];while(i<L.length&&/^\s*>/.test(L[i])){q.push(L[i].replace(/^\s*>\s?/,''));i++;}out.push('<blockquote>'+blocks(q.join('\n'))+'</blockquote>');continue;}
+    if(/^\s*([-*+•]|\d+[.)])\s+/.test(l)){const ord=/^\s*\d/.test(l);const items=[];
+      while(i<L.length&&(/^\s*([-*+•]|\d+[.)])\s+/.test(L[i])||(/^\s{2,}\S/.test(L[i])&&items.length))){
+        if(/^\s*([-*+•]|\d+[.)])\s+/.test(L[i])&&!/^\s{4,}/.test(L[i]))items.push(L[i].replace(/^\s*([-*+•]|\d+[.)])\s+/,''));
+        else items[items.length-1]+='\n'+L[i].trim();i++;}
+      const start=ord?(parseInt(l)||1):1;
+      out.push((ord?`<ol${start>1?` start="${start}"`:''}>`:'<ul>')+items.map(t=>'<li>'+inline(t).replace(/\n/g,'<br>')+'</li>').join('')+(ord?'</ol>':'</ul>'));continue;}
+    const p=[];while(i<L.length&&L[i].trim()&&!/^(#{1,4})\s|^\s*>|^\s*([-*+•]|\d+[.)])\s+/.test(L[i])&&!isTable(i)){p.push(L[i]);i++;}
+    if(!p.length){p.push(l);i++;}
+    out.push('<p>'+p.map(inline).join('<br>')+'</p>');
+  }
+  return out.join('');
+}
+function md(src){
+  const parts=[];const re=/```([\w+#.-]*)[^\n]*\n?([\s\S]*?)(?:```|$)/g;let last=0,m;
+  while((m=re.exec(src))){if(m.index>last)parts.push(blocks(src.slice(last,m.index)));
+    const lang=m[1];parts.push(`<pre class="${lang?'hasl':''}">${lang?`<span class="lang">${esc(lang)}</span>`:''}<button class="copy" type="button">Kopieren</button><code>${esc(m[2].replace(/\n$/,''))}</code></pre>`);
+    last=re.lastIndex;if(m[0]==='')break;}
+  if(last<src.length)parts.push(blocks(src.slice(last)));
+  return parts.join('');
+}
+
+// ---------- rendering
+const col=$('#col'),log=$('#log'),inp=$('#inp'),sendB=$('#send');
+const nearBottom=()=>log.scrollHeight-log.scrollTop-log.clientHeight<120;
+const toBottom=()=>{log.scrollTop=log.scrollHeight;};
+function costOf(m,u){const p=PRICE[m]||PRICE['claude-sonnet-5-5'];return ((u.in||0)*p[0]+(u.out||0)*p[1])/1e6;}
+function renderEmpty(){col.innerHTML=`<div class="empty"><div class="big">${ICON_C}</div><h2>Wie kann ich helfen?</h2><p>Frag Claude, was du willst. Der Chat bleibt in diesem Browser gespeichert.</p><div class="sugg">${SUGG.map(s=>`<button class="btn" type="button">${esc(s)}</button>`).join('')}</div></div>`;
+  col.querySelectorAll('.sugg .btn').forEach(b=>b.onclick=()=>{inp.value=b.textContent+': ';inp.focus();autoSize();updSend();});}
+function msgEl(m){
+  const d=document.createElement('div');d.className='msg '+(m.role==='user'?'user':'ai');
+  if(m.role==='user'){d.innerHTML='<div class="bub"></div>';d.firstChild.textContent=m.content;}
+  else{d.innerHTML=`<div class="av">${ICON_C}</div><div class="body"><div class="md"></div><div class="meta"></div></div>`;fillAi(d,m);}
+  return d;
+}
+function fillAi(d,m){
+  d.querySelector('.md').innerHTML=m.content?md(m.content):'';
+  const meta=d.querySelector('.meta');
+  if(m.err){meta.innerHTML='';const e=document.createElement('div');e.className='err';e.textContent=m.err;d.querySelector('.md').appendChild(e);}
+  else if(m.pending)meta.innerHTML=m.content?'':'<span class="think"><span class="dots"><i></i><i></i><i></i></span>'+(m.thinking?'Claude denkt nach …':'Claude schreibt …')+'</span>';
+  else{meta.innerHTML=`<button type="button" class="cp">Kopieren</button><span>${esc(MODEL_NAME[m.model]||'')}${m.usage?' · ca. '+usd.format(costOf(m.model,m.usage)):''}${m.stopped?' · abgebrochen':''}</span>`;
+    meta.querySelector('.cp').onclick=e=>{copy(m.content,e.target);};}
+}
+function renderChat(){
+  const c=cur();col.innerHTML='';
+  if(!c||!c.msgs.length){renderEmpty();}else{for(const m of c.msgs)col.appendChild(msgEl(m));}
+  if(c&&c.model)$('#model').value=c.model;
+  updCost();renderHist();requestAnimationFrame(toBottom);
+}
+function updCost(){const c=cur();if(!c){$('#cost').textContent='';return;}let s=0;for(const m of c.msgs)if(m.usage)s+=costOf(m.model,m.usage);$('#cost').textContent=s?'Dieser Chat: ca. '+usd.format(s):'';}
+function renderHist(){
+  const h=$('#hist');h.innerHTML='<h3>Verlauf</h3>';
+  if(!chats.length){const p=document.createElement('div');p.style.cssText='color:var(--mut);font-size:13px;padding:6px';p.textContent='Noch keine Chats.';h.appendChild(p);return;}
+  for(const c of chats){const r=document.createElement('div');r.className='hi'+(c.id===curId?' cur':'');
+    r.innerHTML='<button class="t" type="button"></button><button class="x" type="button" aria-label="Chat löschen" title="Löschen">✕</button>';
+    r.querySelector('.t').textContent=c.title||'Neuer Chat';
+    r.querySelector('.t').onclick=()=>{if(busy)return;curId=c.id;save();renderChat();if(innerWidth<640)toggleHist(false);};
+    r.querySelector('.x').onclick=()=>{if(busy&&c.id===curId)return;chats=chats.filter(x=>x.id!==c.id);if(curId===c.id)curId=null;save();renderChat();};
+    h.appendChild(r);}
+}
+function copy(t,btn){navigator.clipboard?.writeText(t).then(()=>{const o=btn.textContent;btn.textContent='Kopiert ✓';setTimeout(()=>btn.textContent=o,1400);}).catch(()=>{});}
+col.addEventListener('click',e=>{const b=e.target.closest('pre .copy');if(b)copy(b.parentElement.querySelector('code').textContent,b);});
+
+// ---------- composer
+function autoSize(){inp.style.height='auto';inp.style.height=Math.min(inp.scrollHeight,220)+'px';}
+function updSend(){sendB.innerHTML=busy?ICON_STOP:ICON_SEND;sendB.setAttribute('aria-label',busy?'Antwort stoppen':'Senden');sendB.disabled=!busy&&!inp.value.trim();}
+inp.addEventListener('input',()=>{autoSize();updSend();});
+inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();if(!busy)send();}});
+sendB.onclick=()=>{if(busy){ctrl&&ctrl.abort();}else send();};
+$('#newBtn').onclick=()=>{if(busy)return;curId=null;save();renderChat();inp.focus();};
+function toggleHist(v){const h=$('#hist'),o=v??!h.classList.contains('open');h.classList.toggle('open',o);$('#histBtn').setAttribute('aria-expanded',o);}
+$('#histBtn').onclick=()=>toggleHist();
+$('#model').onchange=()=>{store.set('ttc.model',$('#model').value);const c=cur();if(c){c.model=$('#model').value;save();}};
+$('#model').value=store.get('ttc.model','claude-sonnet-5-5');
+
+// ---------- setup (server address + access code)
+let setupResolve=null;
+function openSetup(msg){
+  $('#srvLbl').style.display=window.CHAT_SERVER?'none':'';
+  $('#srv').value=server();$('#code').value='';$('#setupErr').textContent=msg||'';
+  $('#setupText').textContent=window.CHAT_SERVER?'Gib den Zugangscode ein, den du beim Chat-Server festgelegt hast.':'Trag die Adresse deines Chat-Servers (Cloudflare Worker) und den Zugangscode ein.';
+  $('#setup').classList.add('open');setTimeout(()=>(window.CHAT_SERVER||server()?$('#code'):$('#srv')).focus(),30);
+  return new Promise(r=>setupResolve=r);
+}
+$('#setupForm').onsubmit=e=>{e.preventDefault();
+  if(!window.CHAT_SERVER){const s=$('#srv').value.trim();if(!/^https:\/\/\S+$/.test(s)){$('#setupErr').textContent='Bitte eine Adresse mit https:// eingeben.';return;}store.set('ttc.server',s);}
+  const c=$('#code').value;if(!c){$('#setupErr').textContent='Bitte den Zugangscode eingeben.';return;}
+  store.set('ttc.code',c);$('#setup').classList.remove('open');setupResolve&&setupResolve(true);setupResolve=null;inp.focus();};
+$('#setupCancel').onclick=()=>{$('#setup').classList.remove('open');setupResolve&&setupResolve(false);setupResolve=null;};
+$('#setBtn').onclick=()=>openSetup();
+addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#setup').classList.contains('open'))$('#setupCancel').click();});
+
+// ---------- talking to Claude
+function systemPrompt(){const d=new Intl.DateTimeFormat('de-DE',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'Europe/Berlin'}).format(new Date());
+  return `Du bist Claude, ein KI-Assistent von Anthropic. Du wirst über den Chat im „TT Entwicklungscampus" genutzt. Heute ist ${d}. Antworte in der Sprache des Nutzers, standardmäßig auf Deutsch. Nutze Markdown, wenn es die Antwort übersichtlicher macht.`;}
+async function send(){
+  const text=inp.value.trim();if(!text||busy)return;
+  if(!server()||!code()){const ok=await openSetup();if(!ok)return;}
+  let c=cur();if(!c){c={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),title:text.slice(0,60),model:$('#model').value,msgs:[],t:Date.now()};chats.unshift(c);curId=c.id;}
+  if(!c.msgs.length)col.innerHTML='';
+  const um={role:'user',content:text};c.msgs.push(um);col.appendChild(msgEl(um));
+  inp.value='';autoSize();
+  const am={role:'assistant',content:'',model:$('#model').value,pending:true};c.msgs.push(am);const el=msgEl(am);col.appendChild(el);
+  c.t=Date.now();c.model=am.model;save();renderHist();toBottom();
+  await run(c,am,el);
+}
+async function run(c,am,el){
+  busy=true;updSend();ctrl=new AbortController();
+  const history=c.msgs.filter(m=>m!==am&&!m.err&&m.content).map(m=>({role:m.role,content:m.content}));
+  let raf=0;const paint=()=>{raf=0;const stick=nearBottom();fillAi(el,am);if(stick)toBottom();};
+  const schedule=()=>{if(!raf)raf=requestAnimationFrame(paint);};
+  try{
+    const res=await fetch(server(),{method:'POST',headers:{'content-type':'application/json','x-chat-key':code()},body:JSON.stringify({model:am.model,system:systemPrompt(),messages:history}),signal:ctrl.signal});
+    if(!res.ok){let msg='Fehler '+res.status;try{const j=await res.json();if(j.error)msg=j.error;}catch{}
+      if(res.status===401){store.set('ttc.code','');am.err=msg+' Bitte erneut eingeben und nochmal senden.';setTimeout(()=>openSetup('Der Zugangscode war falsch.'),300);}else am.err=msg;
+      throw 0;}
+    const rd=res.body.getReader(),dec=new TextDecoder();let buf='';am.usage={in:0,out:0};
+    for(;;){const {value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});
+      let k;while((k=buf.indexOf('\n\n'))>=0){const chunk=buf.slice(0,k);buf=buf.slice(k+2);
+        const data=chunk.split('\n').filter(l=>l.startsWith('data:')).map(l=>l.slice(5).trim()).join('');if(!data)continue;
+        let ev;try{ev=JSON.parse(data);}catch{continue;}
+        if(ev.type==='message_start'&&ev.message&&ev.message.usage){const u=ev.message.usage;am.usage.in=(u.input_tokens||0)+(u.cache_creation_input_tokens||0)+(u.cache_read_input_tokens||0);}
+        else if(ev.type==='content_block_start'&&ev.content_block){if(ev.content_block.type==='thinking'||ev.content_block.type==='redacted_thinking'){am.thinking=true;schedule();}}
+        else if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){am.content+=ev.delta.text;schedule();}
+        else if(ev.type==='message_delta'&&ev.usage){am.usage.out=ev.usage.output_tokens||am.usage.out;}
+        else if(ev.type==='error'){am.err='Claude hat einen Fehler gemeldet: '+((ev.error&&ev.error.message)||'unbekannt');}
+      }}
+    if(!am.content&&!am.err)am.err='Keine Antwort erhalten.';
+  }catch(e){
+    if(e&&e.name==='AbortError'){am.stopped=true;if(!am.content)am.err='Abgebrochen.';}
+    else if(e!==0&&!am.err)am.err='Keine Verbindung zum Chat-Server. Stimmt die Adresse? ('+(e&&e.message||e)+')';
+  }finally{
+    delete am.pending;delete am.thinking;busy=false;ctrl=null;cancelAnimationFrame(raf);fillAi(el,am);
+    c.t=Date.now();save();updCost();updSend();renderHist();if(nearBottom())toBottom();inp.focus();
+  }
+}
+
+renderChat();autoSize();updSend();
+if(!server())openSetup();
+</script>
+</body>
+</html>

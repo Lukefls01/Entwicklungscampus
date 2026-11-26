@@ -629,8 +629,8 @@ const DEPTS=[['A',[0]],['A',[1]],['A',[2]],['A',[3,4]],['B',[0]],['B',[1]],['B',
 // departments that open a web app on click
 Object.assign(DEPTS[0],{name:'TT-Kasse',url:'https://tt-kasse.web.app/'});
 Object.assign(DEPTS[1],{name:'Techno-Playlists',url:'https://lukefls01.github.io/techno-playlists/'});
-// claude.ai can't be embedded in a frame, so it opens in a new tab
-Object.assign(DEPTS[3],{name:'Claude',url:'https://claude.ai/',newTab:true});
+// own Claude chat (chat.html, talks to the Claude API through the chat server in claude-server/)
+Object.assign(DEPTS[3],{name:'Claude',url:'chat.html'});
 const deptIdx=(v,k)=>DEPTS.findIndex(d=>d.v===v&&d.fl.includes(k));
 const deptMeshes=[],deptLines=[];
 DEPTS.forEach((D,di)=>{const fills=[],seg=[];const OFF=OH+.25,LOFF=OH+.29;
