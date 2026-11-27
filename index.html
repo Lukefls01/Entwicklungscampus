@@ -314,19 +314,21 @@ const M={
 for(const k of ['floor','ceil','blind'])M[k].envMapIntensity=.32;
 const zoneU={value:1};M.floor.emissive.set(0xffcf9a);M.floor.emissiveIntensity=0;
 const deptGlowU={uDeptMap:{value:null},uDeptBox:{value:new THREE.Vector4(0,0,0,0)},uOnArr:{value:new Float32Array(18)},uOnCol:{value:new THREE.Color(0,0,0)}};
-const DG_DECL='uniform sampler2D uDeptMap;uniform vec4 uDeptBox;uniform float uOnArr[18];uniform vec3 uOnCol;\n';
-const dgCode=(gain,wp)=>`{vec2 duv=(${wp}.xz-uDeptBox.xy)*uDeptBox.zw;if(duv.x>0.&&duv.x<1.&&duv.y>0.&&duv.y<1.){vec4 dm=texture2D(uDeptMap,duv);
+deptGlowU.uLightMap={value:null};const LM_FLOORS=6;
+const DG_DECL='uniform sampler2D uDeptMap,uLightMap;uniform vec4 uDeptBox;uniform float uOnArr[18];uniform vec3 uOnCol;\n';
+const dgCode=(fill,pool,wp)=>`{vec2 duv=(${wp}.xz-uDeptBox.xy)*uDeptBox.zw;if(duv.x>0.&&duv.x<1.&&duv.y>0.&&duv.y<1.){vec4 dm=texture2D(uDeptMap,duv);
   int kk=int(clamp(floor((${wp}.y-${Y0.toFixed(2)})/${FH.toFixed(2)}),0.,5.));float wv=kk<=1?dm.r:dm.g;int wi=int(wv*255./80.+.5);
-  totalEmissiveRadiance+=uOnArr[wi*6+kk]*uOnCol*${gain};}}`;
+  float on=uOnArr[wi*6+kk];if(on>0.){float pl=texture2D(uLightMap,vec2(duv.x,(duv.y+float(kk))/${LM_FLOORS}.)).r;
+  totalEmissiveRadiance+=on*uOnCol*(${fill}+${pool}*pl);}}}`;
 for(const k of ['floor','ceil']){M[k].customProgramCacheKey=()=>'zone'+k;M[k].onBeforeCompile=sh=>{sh.uniforms.uLit=zoneU;Object.assign(sh.uniforms,deptGlowU);
   sh.vertexShader='varying vec3 vZW;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvZW=(modelMatrix*vec4(transformed,1.)).xyz;');
   sh.fragmentShader=DG_DECL+'uniform float uLit;varying vec3 vZW;\n'+sh.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
   float zk=floor((vZW.y-${Y0.toFixed(2)})/${FH.toFixed(2)});float zh=fract(sin(zk*12.989+floor(vZW.x/9.)*78.233+floor(vZW.z/9.)*37.719)*43.7585);totalEmissiveRadiance*=step(zh,uLit);
-  ${dgCode(k==='ceil'?'1.35':'1.0','vZW')}`);};}
+  ${k==='ceil'?dgCode('.22','1.1','vZW'):dgCode('.16','1.45','vZW')}`);};}
 // desks, chairs and plants inside light up too
 M.vcIn.customProgramCacheKey=()=>'deptGlowIn';M.vcIn.onBeforeCompile=sh=>{Object.assign(sh.uniforms,deptGlowU);
   sh.vertexShader='varying vec3 vDW;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n#ifdef USE_INSTANCING\nvDW=(modelMatrix*instanceMatrix*vec4(transformed,1.)).xyz;\n#else\nvDW=(modelMatrix*vec4(transformed,1.)).xyz;\n#endif');
-  sh.fragmentShader=DG_DECL+'varying vec3 vDW;\n'+sh.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\n'+dgCode('.45','vDW'));};
+  sh.fragmentShader=DG_DECL+'varying vec3 vDW;\n'+sh.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\n'+dgCode('.1','.9','vDW'));};
 woodTex.repeat.set(.25,.25);
 sedumTex.repeat.set(.4,.4);
 function glassMaterial(c,a,ior){const m=new THREE.MeshPhysicalMaterial({color:c,roughness:.05,metalness:0,ior,specularIntensity:1,envMapIntensity:1.6,transparent:true,opacity:a,depthWrite:false});
@@ -385,7 +387,8 @@ building.add(cols.mesh(new THREE.BoxGeometry(.36,FH-ST,.36),M.timberIn,true,true
 building.add(blinds.mesh(new THREE.PlaneGeometry(1,1),M.blind));
 building.add(rails.mesh(new THREE.BoxGeometry(.05,1.06,.05),M.rail));
 building.add(solar.mesh(new THREE.BoxGeometry(2.1,.05,1.15),M.solar,true,true));
-const lightPanels=lights.mesh(new THREE.PlaneGeometry(1.25,.32).rotateX(Math.PI/2),M.lamp);building.add(lightPanels);
+const lightPanels=lights.mesh(new THREE.IcosahedronGeometry(.19,1).translate(0,-.93,0),M.lamp);building.add(lightPanels);
+building.add(lights.mesh(new THREE.CylinderGeometry(.007,.007,.76,3,1,true).translate(0,-.4,0),M.mull));
 { // workstation: desk, monitor, chair
   const parts=[boxC(1.6,.04,.8,0,.74,0,0xd8c3a0),boxC(.04,.72,.7,-.76,.36,0,0xe6e6e6),boxC(.04,.72,.7,.76,.36,0,0xe6e6e6),
     boxC(.6,.36,.03,0,1.0,.22,0x1a1c1f),boxC(.08,.2,.06,0,.82,.25,0x2a2c30),
@@ -685,7 +688,7 @@ DEPTS.forEach((D,di)=>{const fills=[],seg=[];const OFF=OH+.25,LOFF=OH+.29;
   if(!fills.length)return;
   const m=new THREE.Mesh(mergeGeometries(fills.map(x=>x.index?x.toNonIndexed():x)),new THREE.ShaderMaterial({uniforms:{uA:{value:0},uL:{value:0}},transparent:true,depthWrite:false,
     vertexShader:`void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader:`uniform float uA,uL;void main(){float a=max(uA*.3,uL*.14);vec3 c=mix(vec3(1.,.8,.5)*(1.2+1.6*uL),vec3(1.,.95,.88)*1.35,uA/(uA+uL+1e-4));gl_FragColor=vec4(c,a);${TMAP}}`}));
+    fragmentShader:`uniform float uA,uL;void main(){float a=uA*.3;vec3 c=mix(vec3(1.,.8,.5)*(1.2+1.6*uL),vec3(1.,.95,.88)*1.35,uA/(uA+uL+1e-4));gl_FragColor=vec4(c,a);${TMAP}}`}));
   m.renderOrder=10;m.userData.dept=di;building.add(m);deptMeshes.push(m);
   const lg=new LineSegmentsGeometry();lg.setPositions(seg);const lm=new LineMaterial({color:0xffffff,linewidth:2,transparent:true,opacity:0,depthWrite:false,worldUnits:false});
   lm.color.setRGB(1.7,1.05,.42);const ln=new LineSegments2(lg,lm);ln.renderOrder=11;ln.userData.dept=di;ln.raycast=()=>{};building.add(ln);deptLines.push(ln);});
@@ -694,7 +697,15 @@ const deskDept=desks.m.map(m=>{const p=new V3().setFromMatrixPosition(m),k=Math.
  x0-=3;z0-=3;x1+=3;z1+=3;const res=.5,W=Math.ceil((x1-x0)/res),H=Math.ceil((z1-z0)/res),d=new Uint8Array(W*H*4),WI={A:0,B:1,C:2};
  for(let j=0;j<H;j++)for(let i=0;i<W;i++){const x=x0+(i+.5)*res,z=z0+(j+.5)*res,o=(j*W+i)*4;d[o]=WI[volAt(x,z,0)]*80;d[o+1]=WI[volAt(x,z,2)]*80;d[o+3]=255;}
  const t=new THREE.DataTexture(d,W,H);t.magFilter=t.minFilter=THREE.NearestFilter;t.needsUpdate=true;
- deptGlowU.uDeptMap.value=t;deptGlowU.uDeptBox.value.set(x0,z0,1/(W*res),1/(H*res));}
+ deptGlowU.uDeptMap.value=t;deptGlowU.uDeptBox.value.set(x0,z0,1/(W*res),1/(H*res));
+ // light pools: gaussian falloff around each pendant, per floor (tile k of LM_FLOORS stacked along v)
+ const lr=.25,LW=Math.ceil((x1-x0)/lr),LH=Math.ceil((z1-z0)/lr),acc=new Float32Array(LW*LH*LM_FLOORS),sg=1.25,R2=(3*sg)*(3*sg);
+ for(const m of lights.m){const p=new V3().setFromMatrixPosition(m),k=Math.max(0,Math.min(LM_FLOORS-1,Math.floor((p.y-Y0)/FH)));
+   const ci=(p.x-x0)/lr,cj=(p.z-z0)/lr,rr2=Math.ceil(3*sg/lr);
+   for(let j=Math.max(0,Math.floor(cj-rr2));j<=Math.min(LH-1,Math.ceil(cj+rr2));j++)for(let i=Math.max(0,Math.floor(ci-rr2));i<=Math.min(LW-1,Math.ceil(ci+rr2));i++){
+     const dx=(i+.5-ci)*lr,dz=(j+.5-cj)*lr,d2=dx*dx+dz*dz;if(d2<R2)acc[(k*LH+j)*LW+i]+=Math.exp(-d2/(2*sg*sg));}}
+ const ld=new Uint8Array(LW*LH*LM_FLOORS);for(let i=0;i<ld.length;i++)ld[i]=Math.min(255,Math.round(255*(1-Math.exp(-acc[i]*1.1))));
+ const lt=new THREE.DataTexture(ld,LW,LH*LM_FLOORS,THREE.RedFormat);lt.magFilter=lt.minFilter=THREE.LinearFilter;lt.unpackAlignment=1;lt.needsUpdate=true;deptGlowU.uLightMap.value=lt;}
 const panelDept=lights.m.map(m=>{const p=new V3().setFromMatrixPosition(m),k=Math.max(0,Math.floor((p.y-Y0)/FH));return deptIdx(volAt(p.x,p.z,k),k);});
 const countOcc=h=>{let c=0;for(let j=0;j<seatedB.count;j++)if(deskDept[seatOrder[j]]===h)c++;return c;};
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),tip=$('#deptTip');let hoverDept=-1,ptr=null,ptrDirty=false;
@@ -751,8 +762,8 @@ function updateHover(dt){
   const k=Math.min(1,dt*9),nf=lerp(1,.8,night);const kl=Math.min(1,dt*3),WI={A:0,B:1,C:2},arr=deptGlowU.uOnArr.value;arr.fill(0);
   DEPTS.forEach((D,di)=>{D.lv=lerp(D.lv||0,deptOn.has(di)?1:0,kl);if(D.lv>.002)for(const k of D.fl)arr[WI[D.v]*6+k]=D.lv;});
   deptGlowU.uOnCol.value.setRGB(1,.76,.48).multiplyScalar(lerp(1.25,.8,night));
-  for(const m of deptMeshes){const u=m.material.uniforms.uA,uL=m.material.uniforms.uL;u.value=lerp(u.value,m.userData.dept===hoverDept?nf:0,k);uL.value=lerp(uL.value,deptOn.has(m.userData.dept)?lerp(1,.5,night):0,kl);m.visible=u.value>.003||uL.value>.003;}
-  const lc=lerp(1.75,1.05,night);for(const l of deptLines){const o=l.material;o.color.setRGB(lc,lc*.6,lc*.24);o.opacity=lerp(o.opacity,l.userData.dept===hoverDept?.95*nf:deptOn.has(l.userData.dept)?.5:0,k);l.visible=o.opacity>.005;}}
+  for(const m of deptMeshes){const u=m.material.uniforms.uA,uL=m.material.uniforms.uL;u.value=lerp(u.value,m.userData.dept===hoverDept?nf:0,k);uL.value=lerp(uL.value,deptOn.has(m.userData.dept)?lerp(1,.5,night):0,kl);m.visible=u.value>.003;}
+  const lc=lerp(1.75,1.05,night);for(const l of deptLines){const o=l.material;o.color.setRGB(lc,lc*.6,lc*.24);o.opacity=lerp(o.opacity,l.userData.dept===hoverDept?.95*nf:0,k);l.visible=o.opacity>.005;}}
 // --- terrace furniture, parasols, planters
 let parsMesh=null;
 {const setG=mergeGeometries([cylC(.46,.46,.04,16,0,.72,0,0xe2ddd2),cylC(.04,.04,.72,6,0,0,0,0x3b3d40),
@@ -991,7 +1002,7 @@ function tickClock(){const d=nowD();$('#hm').textContent=fHM.format(d);const ds=
   else t=`Nacht · Aufgang morgen ${f(evTomorrow.rise)}`;$('#sunInfo').textContent=t;$('#wxInfo').textContent='Wetter: '+wxName();}
 function updateLight(){const d=nowD(),s=sunAt(d);Object.assign(wx,weatherAt(d));setSun(s.el,s.az);{const pv=wx.rain<.25;if(parsMesh.visible!==pv){parsMesh.visible=pv;renderer.shadowMap.needsUpdate=true;}}flock.on=s.el>0&&wx.rain<.15;
   for(const P of people)P.g.userData.um.visible=wx.rain>.22;return s;}
-let lastLit=1;function applyPanels(){for(let i=0;i<lightZ.length;i++)lightPanels.setColorAt(i,tmpC.setScalar(deptOn.has(panelDept[i])?6:lightZ[i]<lastLit?1:.09));lightPanels.instanceColor.needsUpdate=true;}
+let lastLit=1;function applyPanels(){for(let i=0;i<lightZ.length;i++)lightPanels.setColorAt(i,tmpC.setScalar(deptOn.has(panelDept[i])?7:lightZ[i]<lastLit?.75:.12));lightPanels.instanceColor.needsUpdate=true;}
 function updateLife(force){const d=nowD(),b=berlin(d),s=updateLight();
   const occ=clamp(occupancy(b.h,b.wd),0,1),lit=clamp(occ*1.15+.04+.1*night,0,1);
   lastLit=lit;applyPanels();renderFloors();
